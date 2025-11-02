@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useLanguage } from '../context/LanguageContext';
-import { loans, members } from '../utils/mockData';
+import { useLanguage } from '../../context/LanguageContext';
+import { loans, members } from '../../utils/mockData';
 import { MagnifyingGlassIcon, PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon, BanknotesIcon } from '@heroicons/react/24/outline';
-import Modal from '../components/ui/Modal';
+import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
 // Add loan purposes for the form
 const loanPurposes = ['business', 'education', 'housing', 'personal', 'emergency', 'agriculture'];

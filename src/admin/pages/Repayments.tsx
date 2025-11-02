@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useLanguage } from '../context/LanguageContext';
-import { repayments, loans } from '../utils/mockData';
+import { useLanguage } from '../../context/LanguageContext';
+import { repayments, loans } from '../../utils/mockData';
 import { MagnifyingGlassIcon, PlusIcon, ArrowDownCircleIcon } from '@heroicons/react/24/outline';
-import Modal from '../components/ui/Modal';
+import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
 interface Repayment {
   id: number;

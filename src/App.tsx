@@ -1,44 +1,84 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider } from './context/ThemeContext';
-import { LanguageProvider } from './context/LanguageContext';
-import { AuthProvider } from './context/AuthContext';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Members from './pages/Members';
-import Savings from './pages/Savings';
-import Loans from './pages/Loans';
-import Repayments from './pages/Repayments';
-import Reports from './pages/Reports';
-import Notifications from './pages/Notifications';
-import Settings from './pages/Settings';
-import Layout from './components/layout/Layout';
-import ProtectedRoute from './components/auth/ProtectedRoute';
-import { Toaster } from 'sonner';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "./context/ThemeContext";
+import { LanguageProvider } from "./context/LanguageContext";
+import { AuthProvider } from "./context/AuthContext";
+import { Toaster } from "sonner";
+
+import Login from "./pages/Login";
+import Logout from "./pages/Logout";
+import NotFound from "./pages/NotFound";
+import LandingPage from "./pages/LandingPage";
+import Layout from "./components/layout/Layout";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+
+// Admin pages
+import AdminDashboard from "./admin/pages/Dashboard";
+import AdminMembers from "./admin/pages/Members";
+import AdminSavings from "./admin/pages/Savings";
+import AdminLoans from "./admin/pages/Loans";
+import AdminRepayments from "./admin/pages/Repayments";
+import AdminReports from "./admin/pages/Reports";
+import AdminNotifications from "./admin/pages/Notifications";
+import AdminSettings from "./admin/pages/Settings";
+
+// Member pages
+import MemberDashboard from "./member/pages/Dashboard";
+import MemberMembers from "./member/pages/Members";
+import MemberSavings from "./member/pages/Savings";
+import MemberLoans from "./member/pages/Loans";
+import MemberRepayments from "./member/pages/Repayments";
+import MemberReports from "./member/pages/Reports";
+import MemberNotifications from "./member/pages/Notifications";
+import MemberSettings from "./member/pages/Settings";
+
 export function App() {
-  return <ThemeProvider>
+  return (
+    <ThemeProvider>
       <LanguageProvider>
         <AuthProvider>
-          <BrowserRouter>
+          <BrowserRouter
+            future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+          >
             <Toaster position="top-right" richColors />
+
             <Routes>
+              <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/" element={<ProtectedRoute>
-                    <Layout />
-                  </ProtectedRoute>}>
-                <Route index element={<Dashboard />} />
-                <Route path="members" element={<Members />} />
-                <Route path="savings" element={<Savings />} />
-                <Route path="loans" element={<Loans />} />
-                <Route path="repayments" element={<Repayments />} />
-                <Route path="reports" element={<Reports />} />
-                <Route path="notifications" element={<Notifications />} />
-                <Route path="settings" element={<Settings />} />
+              <Route path="/logout" element={<Logout />} />
+
+              {/* 🔒 Admin Routes */}
+              <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+                <Route path="/admin" element={<Layout />}>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="members" element={<AdminMembers />} />
+                  <Route path="savings" element={<AdminSavings />} />
+                  <Route path="loans" element={<AdminLoans />} />
+                  <Route path="repayments" element={<AdminRepayments />} />
+                  <Route path="reports" element={<AdminReports />} />
+                  <Route path="notifications" element={<AdminNotifications />} />
+                  <Route path="settings" element={<AdminSettings />} />
+                </Route>
               </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
+
+              {/* 🔒 Member Routes */}
+              <Route element={<ProtectedRoute allowedRoles={["member"]} />}>
+                <Route path="/member" element={<Layout />}>
+                  <Route index element={<MemberDashboard />} />
+                  <Route path="members" element={<MemberMembers />} />
+                  <Route path="savings" element={<MemberSavings />} />
+                  <Route path="loans" element={<MemberLoans />} />
+                  <Route path="repayments" element={<MemberRepayments />} />
+                  <Route path="reports" element={<MemberReports />} />
+                  <Route path="notifications" element={<MemberNotifications />} />
+                  <Route path="settings" element={<MemberSettings />} />
+                </Route>
+              </Route>
+
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
         </AuthProvider>
       </LanguageProvider>
-    </ThemeProvider>;
+    </ThemeProvider>
+  );
 }

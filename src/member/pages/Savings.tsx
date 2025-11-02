@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useLanguage } from '../context/LanguageContext';
-import { members } from '../utils/mockData';
+import { useLanguage } from '../../context/LanguageContext';
+import { members } from '../../utils/mockData';
 import { MagnifyingGlassIcon, PlusIcon, CurrencyDollarIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
-import Modal from '../components/ui/Modal';
+import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
 // Mock savings history data
 const savingsHistory = [{

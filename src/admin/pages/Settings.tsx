@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useLanguage } from '../context/LanguageContext';
-import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { UserCircleIcon, KeyIcon, SunIcon, MoonIcon, LanguageIcon, CheckCircleIcon, PencilIcon } from '@heroicons/react/24/outline';
-import Modal from '../components/ui/Modal';
+import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
 const Settings: React.FC = () => {
   const {
