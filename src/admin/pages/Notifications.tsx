@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useLanguage } from '../context/LanguageContext';
-import { notifications } from '../utils/mockData';
+import { useLanguage } from '../../context/LanguageContext';
+import { notifications } from '../../utils/mockData';
 import { BellIcon, CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, TrashIcon, EnvelopeOpenIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 interface Notification {

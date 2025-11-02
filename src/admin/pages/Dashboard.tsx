@@ -1,11 +1,10 @@
-import React, { Children } from 'react';
 import { motion } from 'framer-motion';
-import { useLanguage } from '../context/LanguageContext';
-import StatsCard from '../components/ui/StatsCard';
-import ChartCard from '../components/ui/ChartCard';
+import { useLanguage } from '../../context/LanguageContext';
+import StatsCard from '../../components/ui/StatsCard';
+import ChartCard from '../../components/ui/ChartCard';
 import { UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ClockIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
-import { dashboardStats, savingsData, loanDistribution, repaymentPerformance, recentActivity } from '../utils/mockData';
+import { dashboardStats, savingsData, loanDistribution, repaymentPerformance, recentActivity } from '../../utils/mockData';
 const Dashboard: React.FC = () => {
   const {
     t

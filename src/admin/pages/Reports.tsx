@@ -1,9 +1,9 @@
 import React, { useState, Children } from 'react';
 import { motion } from 'framer-motion';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { ChartBarIcon, ArrowDownTrayIcon, CurrencyDollarIcon, BanknotesIcon, UserGroupIcon, ArrowUpIcon } from '@heroicons/react/24/outline';
-import StatsCard from '../components/ui/StatsCard';
-import ChartCard from '../components/ui/ChartCard';
+import StatsCard from '../../components/ui/StatsCard';
+import ChartCard from '../../components/ui/ChartCard';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend, AreaChart, Area } from 'recharts';
 import { toast } from 'sonner';
 // Mock data for reports
