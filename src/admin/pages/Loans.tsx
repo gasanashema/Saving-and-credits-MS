@@ -29,6 +29,26 @@ const Loans: React.FC = () => {
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Tabs for loan statuses
+  const tabs = ['all', 'pending', 'active', 'paid', 'rejected'] as const;
+  const [activeTab, setActiveTab] = useState<typeof tabs[number]>('all');
+
+  const tabColor = (tab: typeof tabs[number]) => {
+    // returns tailwind classes for active tab background
+    switch (tab) {
+      case 'pending':
+        return 'bg-amber-600 text-white';
+      case 'active':
+        return 'bg-green-600 text-white';
+      case 'paid':
+        return 'bg-blue-600 text-white';
+      case 'rejected':
+        return 'bg-red-600 text-white';
+      default:
+        return 'bg-gray-600 text-white'; // 'all'
+    }
+  };
+
   // New loan form state
   const [newLoan, setNewLoan] = useState({
     member: '',
@@ -44,8 +64,22 @@ const Loans: React.FC = () => {
     term: '',
     interestRate: ''
   });
-  // Filter loans based on search term
-  const filteredLoans = loansList.filter(loan => loan.member.toLowerCase().includes(searchTerm.toLowerCase()) || loan.status.toLowerCase().includes(searchTerm.toLowerCase()) || loan.purpose?.toLowerCase().includes(searchTerm.toLowerCase()) || loan.amount.toString().includes(searchTerm));
+  // Filter loans based on active tab and search term
+  const filteredLoans = loansList
+    .filter(loan => {
+      if (activeTab === 'all') return true;
+      if (activeTab === 'active') {
+        // include both active and approved in the Active tab
+        return loan.status === 'active' || loan.status === 'approved';
+      }
+      return loan.status === activeTab;
+    })
+    .filter(loan =>
+      loan.member.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      loan.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      loan.purpose?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      loan.amount.toString().includes(searchTerm)
+    );
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -165,6 +199,24 @@ const Loans: React.FC = () => {
           {t('applyForLoan')}
         </button>
       </div>
+
+      {/* Tabs */}
+      <div className="flex items-center space-x-3">
+        {tabs.map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+              activeTab === tab
+                ? tabColor(tab)
+                : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            {t(tab)}
+          </button>
+        ))}
+      </div>
+
       {/* Search and Filter */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
         <div className="relative">
@@ -215,8 +267,14 @@ const Loans: React.FC = () => {
                     {formatCurrency(loan.amount)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${loan.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : loan.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}`}>
-                      {t(loan.status)}
+                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      (loan.status === 'approved' || loan.status === 'active')
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                        : loan.status === 'rejected'
+                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                    }`}>
+                      {t(loan.status === 'approved' ? 'active' : loan.status)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -276,8 +334,14 @@ const Loans: React.FC = () => {
                 <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   {t('status')}
                 </h4>
-                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${selectedLoan.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : selectedLoan.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}`}>
-                  {t(selectedLoan.status)}
+                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                  (selectedLoan.status === 'approved' || selectedLoan.status === 'active')
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                    : selectedLoan.status === 'rejected'
+                    ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                }`}>
+                  {t(selectedLoan.status === 'approved' ? 'active' : selectedLoan.status)}
                 </span>
               </div>
               <div>

@@ -1,77 +1,11 @@
 // Mock data for the dashboard
-export const members = [{
-  id: 1,
-  name: 'John Doe',
-  email: 'john@example.com',
-  joinDate: '2023-01-15',
-  totalSavings: 2500
-}, {
-  id: 2,
-  name: 'Jane Smith',
-  email: 'jane@example.com',
-  joinDate: '2023-02-20',
-  totalSavings: 3200
-}, {
-  id: 3,
-  name: 'Robert Johnson',
-  email: 'robert@example.com',
-  joinDate: '2023-01-05',
-  totalSavings: 1800
-}, {
-  id: 4,
-  name: 'Emily Davis',
-  email: 'emily@example.com',
-  joinDate: '2023-03-10',
-  totalSavings: 4100
-}, {
-  id: 5,
-  name: 'Michael Wilson',
-  email: 'michael@example.com',
-  joinDate: '2023-02-28',
-  totalSavings: 2900
-}, {
-  id: 6,
-  name: 'Sarah Brown',
-  email: 'sarah@example.com',
-  joinDate: '2023-04-05',
-  totalSavings: 1500
-}, {
-  id: 7,
-  name: 'David Miller',
-  email: 'david@example.com',
-  joinDate: '2023-03-22',
-  totalSavings: 3700
-}, {
-  id: 8,
-  name: 'Lisa Anderson',
-  email: 'lisa@example.com',
-  joinDate: '2023-01-30',
-  totalSavings: 2200
-}, {
-  id: 9,
-  name: 'James Taylor',
-  email: 'james@example.com',
-  joinDate: '2023-04-12',
-  totalSavings: 1900
-}, {
-  id: 10,
-  name: 'Jennifer White',
-  email: 'jennifer@example.com',
-  joinDate: '2023-02-15',
-  totalSavings: 3400
-}, {
-  id: 11,
-  name: 'Daniel Garcia',
-  email: 'daniel@example.com',
-  joinDate: '2023-03-05',
-  totalSavings: 2800
-}, {
-  id: 12,
-  name: 'Jessica Martinez',
-  email: 'jessica@example.com',
-  joinDate: '2023-01-25',
-  totalSavings: 4300
-}];
+export const members = [
+  { id: 1, name: "Alice Mwiza" },
+  { id: 2, name: "Jean Niyonzima" },
+  { id: 3, name: "Claire Uwimana" },
+  { id: 4, name: "Eric Habimana" }
+];
+
 export const savingsData = [{
   month: 'Jan',
   amount: 12000
@@ -178,63 +112,106 @@ export const recentActivity = [{
   amount: 1500,
   date: '2023-06-05'
 }];
-export const loans = [{
-  id: 1,
-  member: 'John Doe',
-  amount: 5000,
-  status: 'approved',
-  progress: 60,
-  date: '2023-04-10'
-}, {
-  id: 2,
-  member: 'Jane Smith',
-  amount: 3000,
-  status: 'pending',
-  progress: 0,
-  date: '2023-06-02'
-}, {
-  id: 3,
-  member: 'Robert Johnson',
-  amount: 2000,
-  status: 'approved',
-  progress: 75,
-  date: '2023-03-15'
-}, {
-  id: 4,
-  member: 'Emily Davis',
-  amount: 7000,
-  status: 'rejected',
-  progress: 0,
-  date: '2023-05-20'
-}, {
-  id: 5,
-  member: 'Michael Wilson',
-  amount: 4000,
-  status: 'approved',
-  progress: 30,
-  date: '2023-05-05'
-}, {
-  id: 6,
-  member: 'Sarah Brown',
-  amount: 6000,
-  status: 'pending',
-  progress: 0,
-  date: '2023-06-01'
-}, {
-  id: 7,
-  member: 'David Miller',
-  amount: 3500,
-  status: 'approved',
-  progress: 45,
-  date: '2023-04-22'
-}, {
-  id: 8,
-  member: 'Lisa Anderson',
-  amount: 2500,
-  status: 'approved',
-  progress: 90,
-  date: '2023-02-18'
-}];
+export const loans = [
+  // pending
+  {
+    id: 101,
+    member: "Alice Mwiza",
+    amount: 1500,
+    status: "pending",
+    progress: 0,
+    date: "2025-10-01",
+    purpose: "business",
+    term: 12,
+    interestRate: 5,
+    dueDate: "2026-10-01",
+    notes: "New shop stock"
+  },
+  {
+    id: 102,
+    member: "Jean Niyonzima",
+    amount: 800,
+    status: "pending",
+    progress: 0,
+    date: "2025-10-15",
+    purpose: "personal",
+    term: 6,
+    interestRate: 4.5,
+    dueDate: "2026-04-15",
+    notes: ""
+  },
+
+  // active (previously 'approved' in earlier data)
+  {
+    id: 201,
+    member: "Claire Uwimana",
+    amount: 3000,
+    status: "active",
+    progress: 25,
+    date: "2025-06-20",
+    purpose: "housing",
+    term: 24,
+    interestRate: 6,
+    dueDate: "2027-06-20",
+    notes: "Renovation"
+  },
+  {
+    id: 202,
+    member: "Eric Habimana",
+    amount: 1200,
+    status: "active",
+    progress: 40,
+    date: "2025-04-10",
+    purpose: "business",
+    term: 12,
+    interestRate: 5,
+    dueDate: "2026-04-10",
+    notes: "Inventory"
+  },
+
+  // paid
+  {
+    id: 301,
+    member: "Alice Mwiza",
+    amount: 500,
+    status: "paid",
+    progress: 100,
+    date: "2024-09-01",
+    purpose: "education",
+    term: 6,
+    interestRate: 3,
+    dueDate: "2025-03-01",
+    notes: "Tuition - completed"
+  },
+  {
+    id: 302,
+    member: "Jean Niyonzima",
+    amount: 950,
+    status: "paid",
+    progress: 100,
+    date: "2024-12-15",
+    purpose: "personal",
+    term: 6,
+    interestRate: 4,
+    dueDate: "2025-06-15",
+    notes: "Repaid early"
+  },
+
+  // rejected
+  {
+    id: 401,
+    member: "Claire Uwimana",
+    amount: 2000,
+    status: "rejected",
+    progress: 0,
+    date: "2025-09-05",
+    purpose: "agriculture",
+    term: 12,
+    interestRate: 5.5,
+    dueDate: "2026-09-05",
+    notes: "Insufficient guarantor"
+  }
+];
 export const repayments = [{
   id: 1,
   member: 'John Doe',
