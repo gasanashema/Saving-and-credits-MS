@@ -31,9 +31,9 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO `users` VALUES
-(0,'System Admin','supperadmin','sadmin@example.com','$2y$10$examplehash','active'),
-(1,'Alice Admin','admin','alice@example.com','$2y$10$examplehash','active'),
-(2,'Bob Recorder','admin','bob@example.com','$2y$10$examplehash','active');
+(0,'System Admin','supperadmin','sadmin@example.com','$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK','active'),
+(1,'Alice Admin','admin','alice@example.com','$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK','active'),
+(2,'Bob Recorder','admin','bob@example.com','$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK','active');
 
 -- =============================
 -- MEMBERS
@@ -55,11 +55,11 @@ CREATE TABLE `members` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO `members` VALUES
-(0,'1200000000000000','NYIRABATESI','Angel','0780000000','nyira@example.com',100000,'$2y$10$hash',12345,0),
-(1,'1200000000000001','Kamumpa','Allen','0780000001','allen@example.com',6000,'$2y$10$hash',12345,0),
-(2,'1200000000000002','MUGISHA','Peter','0780000002','peter@example.com',0,'$2y$10$hash',12345,0),
-(3,'1200000000000003','SEBAHINZI','Daniel','0780000003','daniel@example.com',9000,'$2y$10$hash',12345,0),
-(4,'1200000000000004','Kagabo','Jean','0780000004','kagabo@example.com',5000,'$2y$10$hash',12345,0);
+(0,'1200000000000000','NYIRABATESI','Angel','0780000000','nyira@example.com',100000,'$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK',12345,0),
+(1,'1200000000000001','Kamumpa','Allen','0780000001','allen@example.com',6000,'$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK',12345,0),
+(2,'1200000000000002','MUGISHA','Peter','0780000002','peter@example.com',0,'$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK',12345,0),
+(3,'1200000000000003','SEBAHINZI','Daniel','0780000003','daniel@example.com',9000,'$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK',12345,0),
+(4,'1200000000000004','Kagabo','Jean','0780000004','kagabo@example.com',5000,'$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK',12345,0);
 
 -- =============================
 -- SAVING TYPES
