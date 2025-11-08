@@ -107,7 +107,7 @@ const getTotal = async (req, res) => {
   }
 };
 const getLoansByStatus = async (req, res) => {
-  const {limit } = req.params;
+  const { limit } = req.params;
   try {
     const [loans] = await conn.query(
       "SELECT `loanId`, `requestDate`, `re`, `amount`, `rate`, `duration`, `applovedDate`, `apploverId`, `memberId`, `amountTopay`, `payedAmount`, loan.status as lstatus, members.id as member_id, `nid`, `firstName`, `lastName` FROM `loan` INNER JOIN members ON members.id = loan.memberId LIMIT ?",
@@ -121,43 +121,43 @@ const getLoansByStatus = async (req, res) => {
 };
 
 const getAllLoanPayments = async (req, res) => {
-  const { limit = 50 } = req.query; // Default limit of 50 recent payments
   try {
-    const [payments] = await conn.query(
-      `SELECT 
+    const query = `
+      SELECT 
         lp.pay_id,
         lp.pay_date,
-        lp.amount as payment_amount,
-        l.loanId,
+        lp.amount,
+        lp.loanId,
         l.amount as loan_amount,
-        l.amountTopay,
+        l.amountTopay as amount_to_pay,
         l.payedAmount,
         l.status as loan_status,
+        l.rate,
+        l.duration,
+        l.requestDate as request_date,
+        l.applovedDate as approved_date,
+        l.re as purpose,
         m.firstName,
         m.lastName,
         m.telephone,
-        u.fullname as recorder_name
-       FROM loanpayment lp 
-       INNER JOIN loan l ON lp.loanId = l.loanId
-       INNER JOIN members m ON l.memberId = m.id
-       INNER JOIN users u ON lp.recorderID = u.user_id 
-       ORDER BY lp.pay_date DESC
-       LIMIT ?`,
-      [Number(limit)]
-    );
+        u.fullname as recorder_name,
+        (l.amountTopay - l.payedAmount) as remaining_amount
+      FROM loanpayment lp
+      INNER JOIN loan l ON lp.loanId = l.loanId 
+      INNER JOIN members m ON l.memberId = m.id
+      INNER JOIN users u ON lp.recorderID = u.user_id
+      ORDER BY lp.pay_date DESC
+      LIMIT ?`;
 
-    const response = {
-      payments: payments.map(payment => ({
-        ...payment,
-        remainingAmount: payment.amountTopay - payment.payedAmount
-      })),
+    const [payments] = await conn.query(query, [50]);
+    
+    res.json({
+      payments,
       total: payments.length
-    };
-
-    return res.json(response);
+    });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ error: error.message });
+    console.error('Error fetching loan payments:', error);
+    res.status(500).json({ message: 'Failed to fetch loan payments' });
   }
 };
 
@@ -193,9 +193,10 @@ const getLoanPaymentDetails = async (req, res) => {
       summary: {
         totalAmount: loanDetails[0].amountTopay,
         paidAmount: loanDetails[0].payedAmount,
-        remainingAmount: loanDetails[0].amountTopay - loanDetails[0].payedAmount,
-        status: loanDetails[0].status
-      }
+        remainingAmount:
+          loanDetails[0].amountTopay - loanDetails[0].payedAmount,
+        status: loanDetails[0].status,
+      },
     };
 
     return res.json(response);
@@ -215,5 +216,5 @@ module.exports = {
   getLoanHistory,
   getLoansByStatus,
   getLoanPaymentDetails,
-  getAllLoanPayments
+  getAllLoanPayments,
 };

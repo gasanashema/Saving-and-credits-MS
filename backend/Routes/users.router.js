@@ -5,6 +5,7 @@ const {
   getAllUsers,
   dashBoard,
   updateStatus,
+  resetPassword,
 } = require("../services/users.service");
 const usersRouter = express.Router();
 
@@ -12,6 +13,7 @@ usersRouter.get("/", getAllUsers);
 usersRouter.get("/:id", (req, res) => res.json("users router"));
 usersRouter.post("/", addUser);
 usersRouter.put("/:action/:id", updateStatus);
+usersRouter.put("/:id/reset-password", resetPassword);
 
 usersRouter.post("/auth", Auth);
 usersRouter.get("/admin/dashboard", dashBoard);

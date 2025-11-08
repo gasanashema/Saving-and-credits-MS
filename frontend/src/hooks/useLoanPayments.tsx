@@ -15,7 +15,11 @@ export interface Payment {
   payerName?: string; // firstName + lastName
   telephone?: string;
   recorderName?: string;
+  approverName?: string;
   remainingAmount?: number;
+  penaltyType?: string;
+  penaltyAmount?: number;
+  penaltyStatus?: string;
   // raw extra fields allowed
   [key: string]: any;
 }
@@ -67,7 +71,11 @@ export default function useLoanPayments(limit?: number): UseLoanPaymentsResult {
           payerName: `${firstName} ${lastName}`.trim() || undefined,
           telephone: p.telephone ?? undefined,
           recorderName: p.recorder_name ?? p.recorderName ?? undefined,
-          remainingAmount: p.remainingAmount != null ? Number(p.remainingAmount) : undefined,
+          approverName: p.approver_name ?? undefined,
+          remainingAmount: p.remaining_amount != null ? Number(p.remaining_amount) : undefined,
+          penaltyType: p.penalty_type ?? undefined,
+          penaltyAmount: p.penalty_amount != null ? Number(p.penalty_amount) : undefined,
+          penaltyStatus: p.penalty_status ?? undefined,
           // keep original payload for debug if needed
           raw: p,
         };

@@ -15,7 +15,8 @@ import Modal from "../../components/ui/Modal";
 import { toast } from "sonner";
 import { Member, MemberSavings } from "../../types/memberTypes";
 import useAllMembers from "../../hooks/useAllMembers";
-import useMemberSavings from "../../hooks/useMemberSavings"; // Import the new hook
+import useMemberSavings from "../../hooks/useMemberSavings";
+import server from "../../utils/server";
 
 const Members: React.FC = () => {
   const { t } = useLanguage();
@@ -27,6 +28,7 @@ const Members: React.FC = () => {
   const { members, loading: membersLoading, error: membersError } = useAllMembers();
   const [membersList, setMembersList] = useState<Member[]>([]);
   const [newMember, setNewMember] = useState({
+    nid: "",
     firstName: "",
     lastName: "",
     email: "",
@@ -34,6 +36,7 @@ const Members: React.FC = () => {
     balance: 0,
   });
   const [errors, setErrors] = useState({
+    nid: "",
     firstName: "",
     lastName: "",
     email: "",
@@ -86,6 +89,14 @@ const Members: React.FC = () => {
     const newErrors = {
       ...errors,
     };
+    // Validate nid
+    if (!newMember.nid.trim()) {
+      newErrors.nid = "National ID is required";
+      isValid = false;
+    } else if (newMember.nid.length !== 16) {
+      newErrors.nid = "National ID must be 16 digits";
+      isValid = false;
+    }
     // Validate firstName
     if (!newMember.firstName.trim()) {
       newErrors.firstName = t("firstNameRequired");
@@ -105,8 +116,11 @@ const Members: React.FC = () => {
       newErrors.email = t("invalidEmail");
       isValid = false;
     }
-    // Validate telephone (optional but if provided, must be valid)
-    if (newMember.telephone && !/^\+?[0-9]{10,15}$/.test(newMember.telephone)) {
+    // Validate telephone (required)
+    if (!newMember.telephone.trim()) {
+      newErrors.telephone = "Phone number is required";
+      isValid = false;
+    } else if (!/^\+?[0-9]{10,15}$/.test(newMember.telephone)) {
       newErrors.telephone = t("invalidPhone");
       isValid = false;
     }
@@ -118,36 +132,44 @@ const Members: React.FC = () => {
     setErrors(newErrors);
     return isValid;
   };
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) {
       return;
     }
-    // Create new member with parsed values
-    const newMemberWithId: Member = {
-      id: membersList.length + 1,
-      nid: `NID${membersList.length + 1}`,
-      firstName: newMember.firstName,
-      lastName: newMember.lastName,
-      email: newMember.email,
-      telephone: newMember.telephone,
-      balance: Number(newMember.balance),
-      status: "active",
-    };
-    // Update members list
-    setMembersList([...membersList, newMemberWithId]);
-    // Reset form
-    setNewMember({
-      firstName: "",
-      lastName: "",
-      email: "",
-      telephone: "",
-      balance: 0,
-    });
-    // Close modal
-    setIsAddModalOpen(false);
-    // Show success message
-    toast.success(t("memberAddedSuccess"));
+    
+    try {
+      await server.post('/members', {
+        nid: newMember.nid,
+        firstName: newMember.firstName,
+        lastName: newMember.lastName,
+        telephone: newMember.telephone,
+        email: newMember.email,
+        balance: Number(newMember.balance),
+      });
+      
+      // Reset form
+      setNewMember({
+        nid: "",
+        firstName: "",
+        lastName: "",
+        email: "",
+        telephone: "",
+        balance: 0,
+      });
+      
+      // Close modal
+      setIsAddModalOpen(false);
+      
+      // Refresh members list
+      window.location.reload();
+      
+      // Show success message
+      toast.success("Member added successfully!");
+    } catch (error: any) {
+      console.error('Error adding member:', error);
+      toast.error(error.response?.data?.error || 'Failed to add member');
+    }
   };
   const itemsPerPage = 8;
   // Filter members based on search term
@@ -544,6 +566,29 @@ const Members: React.FC = () => {
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
+            <div>
+              <label
+                htmlFor="nid"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                National ID *
+              </label>
+              <input
+                type="text"
+                id="nid"
+                name="nid"
+                value={newMember.nid}
+                onChange={handleInputChange}
+                maxLength={16}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Enter 16-digit National ID"
+              />
+              {errors.nid && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                  {errors.nid}
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label
@@ -618,7 +663,7 @@ const Members: React.FC = () => {
                   htmlFor="telephone"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                 >
-                  {t("phoneNumber")}
+                  {t("phoneNumber")} *
                 </label>
                 <input
                   type="text"
