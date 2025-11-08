@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import { useLanguage } from '../../../context/LanguageContext';
@@ -174,10 +174,10 @@ const Navbar: React.FC<NavbarProps> = ({
                       <UserCircleIcon className="h-5 w-5 mr-2" />
                       {t('profile')}
                     </button>
-                    <button onClick={handleLogout} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <Link to="/logout" className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                       <ArrowRightOnRectangleIcon className="h-5 w-5 mr-2" />
                       {t('logout')}
-                    </button>
+                    </Link>
                   </div>
                 </motion.div>}
             </AnimatePresence>
