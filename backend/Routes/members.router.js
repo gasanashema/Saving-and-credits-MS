@@ -9,7 +9,8 @@ const {
   getSelectList,
   updateMember,
   getDashboard,
-  getOneMemberSavings
+  getOneMemberSavings,
+  resetPassword
 } = require("../services/members.service");
 membersRouter.get("/", getAllMembers);
 membersRouter.get("/saving/:start/:end", savingGetAllMembers);
@@ -19,4 +20,5 @@ membersRouter.put("/dashboard/:id/data", getDashboard);
 membersRouter.get("/total", getTotal);
 membersRouter.post("/", addMember);
 membersRouter.put("/:id", updateMember);
+membersRouter.put("/:id/reset-password", resetPassword);
 module.exports = membersRouter;

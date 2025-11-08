@@ -3,9 +3,10 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { UserCircleIcon, KeyIcon, SunIcon, MoonIcon, LanguageIcon, CheckCircleIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon, KeyIcon, SunIcon, MoonIcon, LanguageIcon, CheckCircleIcon, PencilIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
+import server from '../../utils/server';
 const Settings: React.FC = () => {
   const {
     t,
@@ -20,7 +21,7 @@ const Settings: React.FC = () => {
     user
   } = useAuth();
   // Form states
-  const [name, setName] = useState(user?.name || '');
+  const [name, setName] = useState(user?.name || user?.fullname || '');
   const [email, setEmail] = useState(user?.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -112,6 +113,22 @@ const Settings: React.FC = () => {
       toast.success(t('passwordChanged'));
     }, 500);
   };
+
+  const handleResetPassword = async () => {
+    if (!user?.id) {
+      toast.error('User ID not found');
+      return;
+    }
+
+    try {
+      const endpoint = user.role === 'admin' ? `users/${user.id}/reset-password` : `members/${user.id}/reset-password`;
+      await server.put(endpoint);
+      toast.success('Password reset to default (12345)');
+    } catch (error) {
+      console.error('Reset password error:', error);
+      toast.error('Failed to reset password');
+    }
+  };
   const handleProfileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const {
       name,
@@ -170,7 +187,7 @@ const Settings: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-center mb-6">
               <div className="relative">
-                <img src={user?.avatar || 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'} alt={user?.name || 'User'} className="h-24 w-24 rounded-full border-2 border-gray-200 dark:border-gray-700" />
+                <img src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || user?.fullname || 'User')}&background=0D8ABC&color=fff`} alt={user?.name || user?.fullname || 'User'} className="h-24 w-24 rounded-full border-2 border-gray-200 dark:border-gray-700" />
               </div>
             </div>
             <div>
@@ -178,7 +195,7 @@ const Settings: React.FC = () => {
                 {t('name')}
               </h3>
               <p className="mt-1 text-base text-gray-800 dark:text-white">
-                {user?.name || name}
+                {user?.name || user?.fullname || name}
               </p>
             </div>
             <div>
@@ -200,10 +217,16 @@ const Settings: React.FC = () => {
                 {t('changePassword')}
               </h2>
             </div>
-            <button onClick={() => setIsPasswordModalOpen(true)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center">
-              <PencilIcon className="h-4 w-4 mr-1" />
-              {t('change')}
-            </button>
+            <div className="flex space-x-2">
+              <button onClick={() => setIsPasswordModalOpen(true)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center">
+                <PencilIcon className="h-4 w-4 mr-1" />
+                {t('change')}
+              </button>
+              <button onClick={handleResetPassword} className="text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 flex items-center">
+                <ArrowPathIcon className="h-4 w-4 mr-1" />
+                Reset
+              </button>
+            </div>
           </div>
           <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
             <p className="text-gray-600 dark:text-gray-300">
@@ -212,6 +235,11 @@ const Settings: React.FC = () => {
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               {t('lastPasswordChange')}: 30 {t('daysAgo')}
             </p>
+            <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200 dark:border-yellow-800">
+              <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                Reset will change password to default: 12345
+              </p>
+            </div>
           </div>
         </div>
         {/* Theme Settings */}
@@ -294,7 +322,7 @@ const Settings: React.FC = () => {
                 {t('profilePicture')}
               </label>
               <div className="flex items-center">
-                <img src={user?.avatar || 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'} alt="Avatar" className="h-12 w-12 rounded-full mr-4" />
+                <img src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || user?.fullname || 'User')}&background=0D8ABC&color=fff`} alt="Avatar" className="h-12 w-12 rounded-full mr-4" />
                 <input type="file" id="avatar" name="avatar" className="hidden" />
                 <label htmlFor="avatar" className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
                   {t('changeImage')}

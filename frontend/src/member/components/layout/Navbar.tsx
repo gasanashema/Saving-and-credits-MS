@@ -19,14 +19,15 @@ interface NavbarProps {
   sidebarOpen: boolean;
 }
 const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, sidebarOpen }) => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { language, toggleLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const handleLogout = () => {
-    logout();
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
     navigate("/login");
   };
   return (
@@ -45,7 +46,7 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, sidebarOpen }) => {
           </button>
           <div className="ml-4 md:ml-6">
             <h1 className="text-xl font-semibold">
-              {t("welcomeBack")}, {user?.name}
+              {t("welcomeBack")}, {user?.name || user?.fullname}
             </h1>
           </div>
         </div>
@@ -175,9 +176,9 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, sidebarOpen }) => {
               <img
                 src={
                   user?.avatar ||
-                  "https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff"
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || user?.fullname || 'User')}&background=0D8ABC&color=fff`
                 }
-                alt={user?.name || "User"}
+                alt={user?.name || user?.fullname || "User"}
                 className="h-9 w-9 rounded-full border-2 border-gray-200 dark:border-gray-700"
               />
               <ChevronDownIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
@@ -203,7 +204,7 @@ const Navbar: React.FC<NavbarProps> = ({ toggleSidebar, sidebarOpen }) => {
                   className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden z-50 border border-gray-200 dark:border-gray-700"
                 >
                   <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-                    <p className="text-sm font-medium">{user?.name}</p>
+                    <p className="text-sm font-medium">{user?.name || user?.fullname}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {user?.email}
                     </p>

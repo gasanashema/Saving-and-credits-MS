@@ -14,8 +14,7 @@ const Navbar: React.FC<NavbarProps> = ({
   sidebarOpen
 }) => {
   const {
-    user,
-    logout
+    user
   } = useAuth();
   const {
     language,
@@ -30,7 +29,7 @@ const Navbar: React.FC<NavbarProps> = ({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const handleLogout = () => {
-    logout();
+    localStorage.removeItem('user');
     navigate('/login');
   };
   return <header className={`${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'} border-b border-gray-200 dark:border-gray-700`}>
@@ -41,7 +40,7 @@ const Navbar: React.FC<NavbarProps> = ({
           </button>
           <div className="ml-4 md:ml-6">
             <h1 className="text-xl font-semibold">
-              {t('welcomeBack')}, {user?.name}
+              {t('welcomeBack')}, {user?.name || user?.fullname}
             </h1>
           </div>
         </div>
@@ -144,7 +143,7 @@ const Navbar: React.FC<NavbarProps> = ({
           {/* User Menu */}
           <div className="relative">
             <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center space-x-2 rounded-full focus:outline-none">
-              <img src={user?.avatar || 'https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff'} alt={user?.name || 'User'} className="h-9 w-9 rounded-full border-2 border-gray-200 dark:border-gray-700" />
+              <img src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || user?.fullname || 'User')}&background=0D8ABC&color=fff`} alt={user?.name || user?.fullname || 'User'} className="h-9 w-9 rounded-full border-2 border-gray-200 dark:border-gray-700" />
               <ChevronDownIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
             </button>
             <AnimatePresence>
@@ -161,7 +160,7 @@ const Navbar: React.FC<NavbarProps> = ({
               duration: 0.2
             }} className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden z-50 border border-gray-200 dark:border-gray-700">
                   <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-                    <p className="text-sm font-medium">{user?.name}</p>
+                    <p className="text-sm font-medium">{user?.name || user?.fullname}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {user?.email}
                     </p>

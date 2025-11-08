@@ -1,12 +1,17 @@
 const conn = require("../db/connection");
 const jwt = require("jsonwebtoken");
+const bcrypt = require('bcrypt');
+
 const addMember = async (req, res) => {
-  const { nid, firstName, lastName, phone, email, pin } = req.body;
+  const { nid, firstName, lastName, telephone, email, balance = 0, password = '12345', pin = 12345 } = req.body;
 
   try {
+    // Use the provided bcrypt hash for password "12345"
+    const hashedPassword = '$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK';
+    
     const [member] = await conn.query(
-      "INSERT INTO `members`(`nid`, `firstName`, `lastName`, `telephone`, `email`, `pin`) VALUES (?,?,?,?,?,?)",
-      [nid, firstName, lastName, phone, email, pin]
+      "INSERT INTO `members`(`nid`, `firstName`, `lastName`, `telephone`, `email`, `balance`, `password`, `pin`) VALUES (?,?,?,?,?,?,?,?)",
+      [nid, firstName, lastName, telephone, email, balance, hashedPassword, pin]
     );
     return res.json({ status: 201, message: "new Member added", member });
   } catch (error) {
@@ -56,10 +61,11 @@ const getOneMemberSavings = async (req, res) => {
   try {
     const query =
       limit && limit > 0
-        ? "SELECT sav_id,date, sharevalue,numberOfShares FROM savings WHERE savings.memberId = ? LIMIT ?"
-        : "SELECT sav_id,date, sharevalue,numberOfShares FROM savings WHERE savings.memberId = ?";
+        ? "SELECT sav_id,date, shareValue,numberOfShares FROM savings WHERE savings.memberId = ? LIMIT ?"
+        : "SELECT sav_id,date, shareValue,numberOfShares FROM savings WHERE savings.memberId = ?";
 
-    const [savings] = await conn.query(query, [id, Number(limit)]);
+    const params = limit && limit > 0 ? [id, Number(limit)] : [id];
+    const [savings] = await conn.query(query, params);
     
     if (!savings.length) {
       return res
@@ -180,6 +186,28 @@ const getTotal = async (req, res) => {
   }
 };
 
+const resetPassword = async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // Reset to default password "12345" with the provided hash
+    const defaultPasswordHash = '$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK';
+    
+    const [result] = await conn.query(
+      "UPDATE members SET password = ? WHERE member_id = ?",
+      [defaultPasswordHash, id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+    
+    return res.json({ status: 200, message: "Password reset successfully" });
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getDashboard,
   addMember,
@@ -189,4 +217,5 @@ module.exports = {
   getSelectList,
   updateMember,
   getOneMemberSavings,
+  resetPassword,
 };
