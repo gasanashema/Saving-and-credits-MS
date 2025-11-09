@@ -1,31 +1,65 @@
 import { useCallback, useEffect, useState } from "react";
 import server from "../utils/server";
-import { MemberSavings } from "../types/memberTypes";
+import { useAuth } from "../context/AuthContext";
 
-export default function useMemberSavings(memberId: string, limit: number) {
-  const [savings, setSavings] = useState<MemberSavings[]>([]);
+interface MemberSaving {
+  sav_id: number;
+  date: string;
+  numberOfShares: number;
+  shareValue: number;
+  amount: number;
+  type: string;
+}
+
+interface MemberSavingsResponse {
+  savings: MemberSaving[];
+  totalSavings: number;
+  count: number;
+}
+
+export default function useMemberSavings() {
+  const { user } = useAuth();
+  const [savings, setSavings] = useState<MemberSaving[]>([]);
+  const [totalSavings, setTotalSavings] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getMemberSavings = useCallback(async () => {
+  const fetchMemberSavings = useCallback(async () => {
+    if (!user) {
+      setError("User not authenticated");
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    
     try {
-      const resp = await server.get<MemberSavings[]>(`/members/${memberId}/savings/${limit}`);
-      setSavings(resp.data);
-    } catch (error) {
-      console.error("Failed to fetch member savings:", error);
-      setError(error instanceof Error ? error.message : String(error));
+      const response = await server.get<MemberSavingsResponse>(`/saving/member/transactions/${user.id}`);
+      const data = response.data;
+      
+      setSavings(data.savings || []);
+      setTotalSavings(data.totalSavings || 0);
+    } catch (err) {
+      console.error("Failed to fetch member savings:", err);
+      setError(err instanceof Error ? err.message : String(err));
+      setSavings([]);
+      setTotalSavings(0);
     } finally {
       setLoading(false);
     }
-  }, [memberId, limit]);
+  }, [user]);
 
   useEffect(() => {
-    if (memberId) {
-      getMemberSavings();
+    if (user) {
+      fetchMemberSavings();
     }
-  }, [getMemberSavings, memberId]);
+  }, [fetchMemberSavings, user]);
 
-  return { savings, loading, error, refresh: getMemberSavings };
+  return { 
+    savings, 
+    totalSavings, 
+    loading, 
+    error, 
+    refresh: fetchMemberSavings 
+  };
 }

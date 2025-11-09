@@ -1,8 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useAuth } from "../context/AuthContext";
 
 const LandingPage: React.FC = () => {
+  const { user } = useAuth();
+  
   return (
     <div className="relative min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center items-center overflow-hidden px-4">
       
@@ -31,10 +34,10 @@ const LandingPage: React.FC = () => {
         </p>
 
         <Link
-          to="/login"
+          to={user ? (user.role === 'admin' ? '/admin' : '/member') : '/login'}
           className="inline-block px-8 py-4 bg-green-500 text-white font-semibold rounded-2xl shadow-lg hover:bg-green-600 transform hover:scale-105 transition-all duration-300"
         >
-          Login Now
+          {user ? 'View Home' : 'Login Now'}
         </Link>
       </motion.div>
 

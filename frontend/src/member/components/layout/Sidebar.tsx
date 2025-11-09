@@ -1,9 +1,8 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 interface SidebarProps {
   toggleSidebar: () => void;
 }
@@ -16,37 +15,36 @@ const Sidebar: React.FC<SidebarProps> = ({
   const {
     theme
   } = useTheme();
-  const location = useLocation();
   const navItems = [{
-    path: '/',
+    path: '',
     name: t('dashboard'),
     icon: <HomeIcon className="w-6 h-6" />
   }, {
-    path: '/members',
-    name: t('members'),
-    icon: <UsersIcon className="w-6 h-6" />
-  }, {
-    path: '/savings',
+    path: 'savings',
     name: t('savings'),
     icon: <CurrencyDollarIcon className="w-6 h-6" />
   }, {
-    path: '/loans',
+    path: 'loans',
     name: t('loans'),
     icon: <BanknotesIcon className="w-6 h-6" />
   }, {
-    path: '/repayments',
+    path: 'repayments',
     name: t('repayments'),
     icon: <ArrowDownCircleIcon className="w-6 h-6" />
   }, {
-    path: '/reports',
+    path: 'penalties',
+    name: t('penalties'),
+    icon: <ExclamationTriangleIcon className="w-6 h-6" />
+  }, {
+    path: 'reports',
     name: t('reports'),
     icon: <ChartBarIcon className="w-6 h-6" />
   }, {
-    path: '/notifications',
+    path: 'notifications',
     name: t('notifications'),
     icon: <BellIcon className="w-6 h-6" />
   }, {
-    path: '/settings',
+    path: 'settings',
     name: t('settings'),
     icon: <Cog6ToothIcon className="w-6 h-6" />
   }];
@@ -65,7 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-1 px-3">
           {navItems.map(item => <li key={item.path}>
-              <NavLink to={item.path} className={({
+              <NavLink to={item.path} end className={({
             isActive
           }) => `flex items-center px-4 py-3 rounded-lg transition-colors ${isActive ? 'bg-emerald-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                 {item.icon}

@@ -60,13 +60,35 @@ const addSavig = async (req, res) => {
 
 const getAllSavings = async (req, res) => {
   const { limit } = req.params;
-  limit&&limit>0?limit:limit=40;
-
+  const actualLimit = limit && limit > 0 ? limit : 40;
+  
   try {
-    const [users] = await conn.query(
-      "SELECT `id`,`sav_id`, `nid`, `firstName`, `lastName`,telephone,date, sharevalue,`numberOfShares`,sharevalue*numberOfShares as total FROM `members` INNER JOIN savings ON members.id = savings.memberId ORDER BY savings.updatedAt DESC LIMIT ?",
-      [Number(limit)]
-    );
+    const token = req.headers.authorization;
+    let memberId = null;
+    
+    // Check if request is from a member
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded.role === 'member') {
+          memberId = decoded.id;
+        }
+      } catch (err) {
+        // Token invalid, continue without filtering
+      }
+    }
+
+    let query = "SELECT `id`,`sav_id`, `nid`, `firstName`, `lastName`,telephone,date, sharevalue,`numberOfShares`,sharevalue*numberOfShares as total FROM `members` INNER JOIN savings ON members.id = savings.memberId";
+    const params = [Number(actualLimit)];
+    
+    if (memberId) {
+      query += " WHERE members.id = ?";
+      params.unshift(memberId);
+    }
+    
+    query += " ORDER BY savings.updatedAt DESC LIMIT ?";
+
+    const [users] = await conn.query(query, params);
     return res.json(users);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -109,6 +131,28 @@ const getSavingSelectList = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+const getMemberSavings = async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+    const memberId = jwt.verify(token, process.env.JWT_SECRET).id;
+    
+    const [savings] = await conn.query(
+      "SELECT s.sav_id, s.date, s.numberOfShares, s.shareValue, (s.numberOfShares * s.shareValue) as amount, st.title as type FROM savings s INNER JOIN savingtypes st ON s.stId = st.stId WHERE s.memberId = ? ORDER BY s.date DESC",
+      [memberId]
+    );
+    
+    const totalSavings = savings.reduce((sum, saving) => sum + Number(saving.amount), 0);
+    
+    return res.json({
+      savings,
+      totalSavings,
+      count: savings.length
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
 const completeSaving = () => async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -141,5 +185,6 @@ module.exports = {
   editSaving,
   completeSaving,
   getSavingChanges,
-  getAllSavings
+  getAllSavings,
+  getMemberSavings
 };

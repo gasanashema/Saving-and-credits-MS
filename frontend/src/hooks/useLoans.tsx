@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import server from "../utils/server";
 import { BackendLoan, LoanStatus } from "../types/loanTypes";
+import { useAuth } from "../context/AuthContext";
 
 export default function useLoans(limit: number) {
+  const { user } = useAuth();
   const [loans, setLoans] = useState<BackendLoan[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -12,10 +14,10 @@ export default function useLoans(limit: number) {
     setError(null);
 
     try {
-      // If status is 'all', fetch without status filter
-      const endpoint = limit 
-        ? `/loans/${limit}`
-        : `/loans/30`;
+      // Use member-specific endpoint for members, admin endpoint for admins
+      const endpoint = user?.role === 'member' 
+        ? '/loans/member'
+        : (limit ? `/loans/${limit}` : `/loans/30`);
         
       const resp = await server.get<BackendLoan[]>(endpoint);
       const raw = Array.isArray(resp.data) ? resp.data : resp;
