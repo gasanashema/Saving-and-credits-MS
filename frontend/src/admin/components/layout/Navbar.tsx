@@ -173,10 +173,13 @@ const Navbar: React.FC<NavbarProps> = ({
                       <UserCircleIcon className="h-5 w-5 mr-2" />
                       {t('profile')}
                     </button>
-                    <Link to="/logout" className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <button onClick={() => {
+                  setUserMenuOpen(false);
+                  navigate('/logout');
+                }} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                       <ArrowRightOnRectangleIcon className="h-5 w-5 mr-2" />
                       {t('logout')}
-                    </Link>
+                    </button>
                   </div>
                 </motion.div>}
             </AnimatePresence>

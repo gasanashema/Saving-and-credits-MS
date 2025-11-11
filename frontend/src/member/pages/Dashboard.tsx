@@ -1,4 +1,3 @@
-import React, { Children } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
 import StatsCard from '../../components/ui/StatsCard';

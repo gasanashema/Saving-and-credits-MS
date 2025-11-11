@@ -38,11 +38,11 @@ const getMemberLoans = async (req, res) => {
   const token = req.headers.authorization;
   const memberId = jwt.verify(token, process.env.JWT_SECRET).id;
   try {
-    const [users] = await conn.query(
-      "SELECT * FROM `loan` WHERE memberId='?'",
+    const [loans] = await conn.query(
+      "SELECT `loanId`, `requestDate`, `re`, `amount`, `rate`, `duration`, `applovedDate`, `apploverId`, `memberId`, `amountTopay`, `payedAmount`, loan.status as lstatus, members.id as member_id, `nid`, `firstName`, `lastName` FROM `loan` INNER JOIN members ON members.id = loan.memberId WHERE loan.memberId = ?",
       [memberId]
     );
-    return res.json(users);
+    return res.json(loans);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -122,7 +122,23 @@ const getLoansByStatus = async (req, res) => {
 
 const getAllLoanPayments = async (req, res) => {
   try {
-    const query = `
+    const token = req.headers.authorization;
+    let memberId = null;
+    
+    // Check if request is from a member (has token)
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // If user role is member, filter by member ID
+        if (decoded.role === 'member') {
+          memberId = decoded.id;
+        }
+      } catch (err) {
+        // Token invalid, continue without filtering
+      }
+    }
+
+    let query = `
       SELECT 
         lp.pay_id,
         lp.pay_date,
@@ -145,11 +161,18 @@ const getAllLoanPayments = async (req, res) => {
       FROM loanpayment lp
       INNER JOIN loan l ON lp.loanId = l.loanId 
       INNER JOIN members m ON l.memberId = m.id
-      INNER JOIN users u ON lp.recorderID = u.user_id
-      ORDER BY lp.pay_date DESC
-      LIMIT ?`;
+      INNER JOIN users u ON lp.recorderID = u.user_id`;
+    
+    const params = [50];
+    
+    if (memberId) {
+      query += ` WHERE l.memberId = ?`;
+      params.unshift(memberId);
+    }
+    
+    query += ` ORDER BY lp.pay_date DESC LIMIT ?`;
 
-    const [payments] = await conn.query(query, [50]);
+    const [payments] = await conn.query(query, params);
     
     res.json({
       payments,

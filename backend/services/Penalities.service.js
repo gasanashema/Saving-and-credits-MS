@@ -19,10 +19,33 @@ const addPenalities = async (req, res) => {
 const getPenalities = async (req, res) => {
   const { search, start, end } = req.params;
   try {
-    const sql =
-      search == "all"
-        ? "SELECT id,firstName,lastName,date,amount,PayedArt,confirmedBy,p_id, pstatus FROM   `penalties` INNER JOIN  members WHERE id =memberId ORDER BY pstatus,date LIMIT ?, ?"
-        : `SELECT id,firstName,lastName,date,amount,PayedArt,confirmedBy,p_id, pstatus FROM   penalties INNER JOIN  members WHERE id =memberId AND pstatus='${search}' ORDER BY pstatus,date LIMIT ?, ?`;
+    const token = req.headers.authorization;
+    let memberId = null;
+    
+    // Check if request is from a member
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded.role === 'member') {
+          memberId = decoded.id;
+        }
+      } catch (err) {
+        // Token invalid, continue without filtering
+      }
+    }
+
+    let sql = "SELECT id,firstName,lastName,date,amount,PayedArt,confirmedBy,p_id, pstatus FROM penalties INNER JOIN members WHERE id = memberId";
+    
+    if (search !== "all") {
+      sql += ` AND pstatus='${search}'`;
+    }
+    
+    if (memberId) {
+      sql += ` AND id = ${memberId}`;
+    }
+    
+    sql += " ORDER BY pstatus,date LIMIT ?, ?";
+    
     const [users] = await conn.query(sql, [Number(start), Number(end)]);
     return res.json(users);
   } catch (error) {

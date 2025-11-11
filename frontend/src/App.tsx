@@ -24,10 +24,11 @@ import AdminSettings from "./admin/pages/Settings";
 
 // Member pages
 import MemberDashboard from "./member/pages/Dashboard";
-import MemberMembers from "./member/pages/Members";
+
 import MemberSavings from "./member/pages/Savings";
 import MemberLoans from "./member/pages/Loans";
 import MemberRepayments from "./member/pages/Repayments";
+import MemberPenalties from "./member/pages/Penalties";
 import MemberReports from "./member/pages/Reports";
 import MemberNotifications from "./member/pages/Notifications";
 import MemberSettings from "./member/pages/Settings";
@@ -66,10 +67,11 @@ export function App() {
               <Route element={<ProtectedRoute allowedRoles={["member"]} />}>
                 <Route path="/member" element={<Layout />}>
                   <Route index element={<MemberDashboard />} />
-                  <Route path="members" element={<MemberMembers />} />
+
                   <Route path="savings" element={<MemberSavings />} />
                   <Route path="loans" element={<MemberLoans />} />
                   <Route path="repayments" element={<MemberRepayments />} />
+                  <Route path="penalties" element={<MemberPenalties />} />
                   <Route path="reports" element={<MemberReports />} />
                   <Route path="notifications" element={<MemberNotifications />} />
                   <Route path="settings" element={<MemberSettings />} />

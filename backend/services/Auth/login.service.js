@@ -19,7 +19,7 @@ const Auth = async (req, res) => {
         [username]
       );
       user = userdata[0];
-      console.log(user)
+      // console.log(user)
     }
 
     if (!user) {
@@ -40,7 +40,7 @@ const Auth = async (req, res) => {
     // Assign role explicitly if member
     const userRole = role === "admin" ? user.role : "member";
 
-    const id = role === "admin" ? user.user_id : user.member_id;
+    const id = role === "admin" ? user.user_id : user.id;
     const fullname =
       role === "admin"
         ? user.fullname

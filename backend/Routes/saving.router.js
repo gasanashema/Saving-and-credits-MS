@@ -8,7 +8,8 @@ const {
   editSaving,
   completeSaving,
   getSavingChanges,
-  getAllSavings
+  getAllSavings,
+  getMemberSavings
 } = require("../services/saving.service");
 savingRouter.post("/", addSavig);
 savingRouter.put("/", editSaving);
@@ -18,4 +19,5 @@ savingRouter.get("/on/:date", getSavings);
 savingRouter.post("/complete", completeSaving);
 savingRouter.get("/type/list", getSavingSelectList);
 savingRouter.get("/changes/:id",getSavingChanges)
+savingRouter.get("/transactions/:memberId", getMemberSavings);
 module.exports = savingRouter;
