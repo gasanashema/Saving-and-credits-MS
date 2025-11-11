@@ -34,7 +34,7 @@ export default function useMemberSavings() {
     setError(null);
     
     try {
-      const response = await server.get<MemberSavingsResponse>(`/saving/member/transactions/${user.id}`);
+      const response = await server.get<MemberSavingsResponse>(`/saving/transactions/${user.id}`);
       const data = response.data;
       
       setSavings(data.savings || []);

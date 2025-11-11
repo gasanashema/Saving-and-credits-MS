@@ -134,8 +134,7 @@ const getSavingSelectList = async (req, res) => {
 
 const getMemberSavings = async (req, res) => {
   try {
-    const token = req.headers.authorization;
-    const memberId = jwt.verify(token, process.env.JWT_SECRET).id;
+    const {memberId} = req.params;
     
     const [savings] = await conn.query(
       "SELECT s.sav_id, s.date, s.numberOfShares, s.shareValue, (s.numberOfShares * s.shareValue) as amount, st.title as type FROM savings s INNER JOIN savingtypes st ON s.stId = st.stId WHERE s.memberId = ? ORDER BY s.date DESC",

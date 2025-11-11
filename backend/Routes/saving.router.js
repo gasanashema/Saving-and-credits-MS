@@ -19,5 +19,5 @@ savingRouter.get("/on/:date", getSavings);
 savingRouter.post("/complete", completeSaving);
 savingRouter.get("/type/list", getSavingSelectList);
 savingRouter.get("/changes/:id",getSavingChanges)
-savingRouter.get("/member/transactions/:memberId", getMemberSavings);
+savingRouter.get("/transactions/:memberId", getMemberSavings);
 module.exports = savingRouter;

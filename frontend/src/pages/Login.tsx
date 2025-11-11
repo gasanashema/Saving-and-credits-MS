@@ -59,6 +59,7 @@ const Login: React.FC = () => {
 
       const { token, role, id, fullname, email } = response;
 
+      console.log(response);
       // 🧠 Store user info
       const userData = { id, fullname, email, role, token };
       // example after successful login
