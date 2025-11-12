@@ -1,15 +1,103 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useLanguage } from "../../context/LanguageContext";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, PlusIcon } from "@heroicons/react/24/outline";
 import useMemberSavings from "../../hooks/useMemberSavings";
+import Modal from "../components/ui/Modal";
+import server from "../../utils/server";
+import { useAuth } from "../../context/AuthContext";
+
+interface SavingType {
+  name: string;
+  value: number;
+  amount: number;
+}
 
 const Savings: React.FC = () => {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [savingTypes, setSavingTypes] = useState<SavingType[]>([]);
+  const [formData, setFormData] = useState({
+    stId: '',
+    numberOfShares: '',
+    shareValue: '',
+    phoneNumber: ''
+  });
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const [totalAmount, setTotalAmount] = useState(0);
 
+  const { savings, totalSavings, loading, error, refresh } = useMemberSavings();
 
-  const { savings, totalSavings, loading, error } = useMemberSavings();
+  useEffect(() => {
+    if (isModalOpen) {
+      const fetchSavingTypes = async () => {
+        try {
+          const response = await server.get('/saving/type/list');
+          setSavingTypes(response.data);
+        } catch (err) {
+          console.error('Failed to fetch saving types:', err);
+        }
+      };
+      fetchSavingTypes();
+    }
+  }, [isModalOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setModalLoading(true);
+    setModalError('');
+
+    try {
+      await server.post('/saving', {
+        memberId: user.id,
+        stId: parseInt(formData.stId),
+        numberOfShares: parseInt(formData.numberOfShares),
+        shareValue: parseInt(formData.shareValue)
+      });
+
+      setIsModalOpen(false);
+      setFormData({
+        stId: '',
+        numberOfShares: '',
+        shareValue: '',
+        phoneNumber: ''
+      });
+      setTotalAmount(0);
+      refresh();
+    } catch (err) {
+      console.error('Failed to save:', err);
+      setModalError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedType = savingTypes.find(type => type.value === parseInt(e.target.value));
+    const shareValue = selectedType ? selectedType.amount : 0;
+    const shares = parseInt(formData.numberOfShares) || 0;
+    setFormData({
+      ...formData,
+      stId: e.target.value,
+      shareValue: shareValue.toString()
+    });
+    setTotalAmount(shares * shareValue);
+  };
+
+  const handleSharesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const shares = parseInt(e.target.value) || 0;
+    const shareValue = parseInt(formData.shareValue) || 0;
+    setFormData({
+      ...formData,
+      numberOfShares: e.target.value
+    });
+    setTotalAmount(shares * shareValue);
+  };
 
   const formatCurrency = (value: number) =>
     value.toLocaleString(undefined, {
@@ -54,17 +142,26 @@ const Savings: React.FC = () => {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+        <div className="flex space-x-4">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={t("searchTransactions")}
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
           </div>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t("searchTransactions")}
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Save Now
+          </button>
         </div>
       </div>
 
@@ -136,6 +233,93 @@ const Savings: React.FC = () => {
         </div>
       </div>
 
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Add New Saving"
+        size="md"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Saving Type
+            </label>
+            <select
+              value={formData.stId}
+              onChange={handleTypeChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              required
+            >
+              <option value="">Select type</option>
+              {savingTypes.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Number of Shares
+            </label>
+            <input
+              type="number"
+              value={formData.numberOfShares}
+              onChange={handleSharesChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              min="1"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Total Amount
+            </label>
+            <input
+              type="text"
+              value={formatCurrency(totalAmount)}
+              readOnly
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Phone Number (for payment)
+            </label>
+            <input
+              type="tel"
+              value={formData.phoneNumber}
+              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              placeholder="e.g. +250788123456"
+            />
+          </div>
+
+          {modalError && (
+            <div className="text-sm text-red-500">{modalError}</div>
+          )}
+
+          <div className="flex justify-end space-x-3">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={modalLoading}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50"
+            >
+              {modalLoading ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
     </div>
   );
