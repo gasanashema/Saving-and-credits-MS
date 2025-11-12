@@ -1,0 +1,12 @@
+{
+  "name": "ikibina-app",
+  "private": true,
+  "scripts": {
+    "start": "concurrently -n BACKEND,FRONTEND -c blue,green \"npm run backend\" \"npm run frontend\"",
+    "backend": "npm --prefix backend start",
+    "frontend": "npm --prefix frontend run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
