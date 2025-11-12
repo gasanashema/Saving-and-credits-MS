@@ -22,20 +22,16 @@ const Notifications: React.FC = () => {
   })));
   const [activeFilter, setActiveFilter] = useState('all');
   const filteredNotifications = activeFilter === 'all' ? notificationsList : activeFilter === 'unread' ? notificationsList.filter(n => !n.read) : notificationsList.filter(n => n.type === activeFilter);
-  const unreadCount = notificationsList.filter(n => !n.read).length;
-  const markAsRead = (id: number) => {
-    setNotificationsList(notificationsList.map(notification => notification.id === id ? {
-      ...notification,
-      read: true
-    } : notification));
+
+  const handleMarkAsRead = async (id: string) => {
+    await markAsRead(id);
   };
-  const markAllAsRead = () => {
-    setNotificationsList(notificationsList.map(notification => ({
-      ...notification,
-      read: true
-    })));
+
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead();
     toast.success(t('allMarkedAsRead'));
   };
+
   const deleteNotification = (id: number) => {
     setNotificationsList(notificationsList.filter(notification => notification.id !== id));
     toast.success(t('notificationDeleted'));
@@ -64,7 +60,7 @@ const Notifications: React.FC = () => {
             {t('notificationsDescription')}
           </p>
         </div>
-        {unreadCount > 0 && <button onClick={markAllAsRead} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
+        {unreadCount > 0 && <button onClick={handleMarkAllAsRead} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
             <EnvelopeOpenIcon className="h-5 w-5 mr-2" />
             {t('markAllAsRead')}
           </button>}
@@ -134,7 +130,7 @@ const Notifications: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                    {!notification.read && <button onClick={() => markAsRead(notification.id)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title={t('markAsRead')}>
+                    {!notification.read && <button onClick={() => handleMarkAsRead(notification.id.toString())} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title={t('markAsRead')}>
                         <EnvelopeOpenIcon className="h-5 w-5" />
                       </button>}
                     <button onClick={() => deleteNotification(notification.id)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300" title={t('delete')}>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
-import { MagnifyingGlassIcon, PlusIcon, ExclamationTriangleIcon, UserIcon, PhoneIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, ExclamationTriangleIcon, UserIcon, PhoneIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
+import useMemberPenalties from '../../hooks/useMemberPenalties';
 import server from '../../utils/server';
 
 interface Penalty {
@@ -19,122 +20,19 @@ interface Penalty {
   id: number;
 }
 
-interface PenaltyType {
-  value: number;
-  name: string;
-  amount: number;
-}
-
-interface NewPenalty {
-  pType: string;
-  amount: string;
-  memberId: string;
-}
 
 const Penalties: React.FC = () => {
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedPenalty, setSelectedPenalty] = useState<Penalty | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  
-  const [penalties, setPenalties] = useState<Penalty[]>([]);
-  const [penaltyTypes, setPenaltyTypes] = useState<PenaltyType[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const [newPenalty, setNewPenalty] = useState<NewPenalty>({
-    pType: '',
-    amount: '',
-    memberId: ''
-  });
-
-  const [errors, setErrors] = useState({
-    pType: '',
-    amount: '',
-    memberId: ''
-  });
-
-  const fetchPenalties = async () => {
-    try {
-      setLoading(true);
-      const [penaltiesRes, totalRes, typesRes] = await Promise.all([
-        server.get(`/penalities/data/0/50/${statusFilter}`),
-        server.get(`/penalities/total/${statusFilter}`),
-        server.get('/penalities/selectlist')
-      ]);
-      
-      setPenalties(penaltiesRes.data);
-      setTotal(totalRes.data);
-      setPenaltyTypes(typesRes.data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPenalties();
-  }, [statusFilter]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setNewPenalty(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    if (name === 'pType') {
-      const selectedType = penaltyTypes.find(type => type.value === Number(value));
-      if (selectedType) {
-        setNewPenalty(prev => ({
-          ...prev,
-          amount: selectedType.amount.toString()
-        }));
-      }
-    }
-    
-    setErrors(prev => ({
-      ...prev,
-      [name]: ''
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPenalty.pType || !newPenalty.amount || !newPenalty.memberId) {
-      setErrors({
-        pType: !newPenalty.pType ? 'Penalty type is required' : '',
-        amount: !newPenalty.amount ? 'Amount is required' : '',
-        memberId: !newPenalty.memberId ? 'Member ID is required' : ''
-      });
-      return;
-    }
-
-    try {
-      await server.post('/penalities', {
-        pType: Number(newPenalty.pType),
-        amount: Number(newPenalty.amount),
-        memberId: Number(newPenalty.memberId)
-      });
-
-      setNewPenalty({ pType: '', amount: '', memberId: '' });
-      setIsAddModalOpen(false);
-      fetchPenalties();
-      toast.success('Penalty recorded successfully');
-    } catch (error) {
-      console.error('Penalty error:', error);
-      toast.error('Failed to record penalty');
-    }
-  };
+  const { penalties, total, loading, error, refresh } = useMemberPenalties();
 
   const handlePayPenalty = async (penaltyId: number) => {
     try {
       await server.put(`/penalities/pay/${penaltyId}`);
-      fetchPenalties();
+      refresh();
       toast.success('Penalty marked as paid');
     } catch (error) {
       console.error('Payment error:', error);
@@ -186,38 +84,18 @@ const Penalties: React.FC = () => {
         </div>
       </div>
 
-      {/* Search and Add */}
-      <div className="flex justify-between items-center">
-        <div className="flex space-x-4">
-          <div className="relative flex-1 max-w-md">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search penalties..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2"
-          >
-            <option value="all">All Status</option>
-            <option value="wait">Pending</option>
-            <option value="paid">Paid</option>
-          </select>
+      {/* Search */}
+      <div className="relative max-w-md">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
         </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="ml-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Record Penalty
-        </button>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder={t('searchPenalties')}
+          className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
+        />
       </div>
 
       {/* Penalties Table */}
@@ -344,86 +222,6 @@ const Penalties: React.FC = () => {
         )}
       </Modal>
 
-      {/* Add Penalty Modal */}
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title="Record Penalty"
-      >
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="memberId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Member ID *
-            </label>
-            <input
-              type="text"
-              id="memberId"
-              name="memberId"
-              value={newPenalty.memberId}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
-            />
-            {errors.memberId && <p className="mt-1 text-sm text-red-600">{errors.memberId}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="pType" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Penalty Type *
-            </label>
-            <select
-              id="pType"
-              name="pType"
-              value={newPenalty.pType}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
-            >
-              <option value="">Select penalty type</option>
-              {penaltyTypes.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
-            {errors.pType && <p className="mt-1 text-sm text-red-600">{errors.pType}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Amount *
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">RWF</span>
-              </div>
-              <input
-                type="number"
-                id="amount"
-                name="amount"
-                value={newPenalty.amount}
-                onChange={handleInputChange}
-                className="pl-12 block w-full rounded-md border-gray-300 focus:border-red-500 focus:ring-red-500"
-              />
-            </div>
-            {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={() => setIsAddModalOpen(false)}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
-            >
-              Record Penalty
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 };

@@ -7,6 +7,7 @@ const loanRouter = require("./loan.route");
 const ussdRouter = require("./ussd.route");
 const settingsRouter = require("./settings.route");
 const PayRouter = require("./pay.route");
+const notificationsRouter = require("./notifications.route");
 
 const appRouter = express.Router();
 
@@ -18,6 +19,7 @@ appRouter.use("/loans", loanRouter);
 appRouter.use("/pay",PayRouter)
 appRouter.use("/ussd", ussdRouter);
 appRouter.use("/settings", settingsRouter);
+appRouter.use("/notifications", notificationsRouter);
 
 
 module.exports = appRouter;

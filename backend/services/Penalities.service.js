@@ -19,12 +19,13 @@ const addPenalities = async (req, res) => {
 const getPenalities = async (req, res) => {
   const { search, start, end } = req.params;
   try {
-    const token = req.headers.authorization;
+    const authHeader = req.headers.authorization;
     let memberId = null;
-    
+
     // Check if request is from a member
-    if (token) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
+        const token = authHeader.substring(7);
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         if (decoded.role === 'member') {
           memberId = decoded.id;
@@ -35,17 +36,17 @@ const getPenalities = async (req, res) => {
     }
 
     let sql = "SELECT id,firstName,lastName,date,amount,PayedArt,confirmedBy,p_id, pstatus FROM penalties INNER JOIN members WHERE id = memberId";
-    
+
     if (search !== "all") {
       sql += ` AND pstatus='${search}'`;
     }
-    
+
     if (memberId) {
       sql += ` AND id = ${memberId}`;
     }
-    
+
     sql += " ORDER BY pstatus,date LIMIT ?, ?";
-    
+
     const [users] = await conn.query(sql, [Number(start), Number(end)]);
     return res.json(users);
   } catch (error) {
@@ -55,9 +56,14 @@ const getPenalities = async (req, res) => {
 const payPenality = async (req, res) => {
   try {
     const { pid } = req.params;
-    const token = req.headers.authorization;
+    const authHeader = req.headers.authorization;
     const dt = new Date();
-    const userId = jwt.verify(token, process.env.JWT_SECRET).id;
+    let userId = 1; // default
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      userId = jwt.verify(token, process.env.JWT_SECRET).id;
+    }
     const [payment] = await conn.query(
       "UPDATE `penalties` SET `pstatus`=?,`PayedArt`=?,`confirmedBy`=? WHERE `p_id`=?",
       ["paid", dt, userId, pid]
@@ -94,10 +100,33 @@ const getTotal = async (req, res) => {
   }
 };
 
+const getMemberPenalties = async (req, res) => {
+  console.log('🔄 getMemberPenalties called');
+  const { memberId } = req.params;
+  const memberIdNum = parseInt(memberId);
+  console.log('📋 Using memberId:', memberIdNum);
+
+  try {
+    const [penalties] = await conn.query(
+      "SELECT id,firstName,lastName,date,amount,PayedArt,confirmedBy,p_id, pstatus, ptypes.title as penaltyType FROM penalties INNER JOIN members ON id = memberId LEFT JOIN ptypes ON ptypes.ptId = penalties.pType WHERE id = ? ORDER BY pstatus,date",
+      [memberIdNum]
+    );
+
+    console.log('⚠️ Raw penalties from DB:', penalties.length, 'records');
+    console.log('📋 First penalty:', penalties[0]);
+    console.log('✅ getMemberPenalties completed successfully');
+    return res.json(penalties);
+  } catch (error) {
+    console.log('❌ getMemberPenalties error:', error.message);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   addPenalities,
   getPenalities,
   getTotal,
   payPenality,
   getSelectList,
+  getMemberPenalties,
 };
