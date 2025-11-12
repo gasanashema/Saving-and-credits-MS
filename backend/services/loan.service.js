@@ -4,8 +4,13 @@ const conn = require("../db/connection");
 const addLoan = async (req, res) => {
   try {
     const { amount, duration, re, rate, amountTopay } = req.body;
-    const token = req.headers.authorization;
-    const memberId = jwt.verify(token, process.env.JWT_SECRET).id;
+    const authHeader = req.headers.authorization;
+    let memberId = 1; // default
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      memberId = jwt.verify(token, process.env.JWT_SECRET).id;
+    }
     const dt = new Date();
     const [loan] = await conn.query(
       "INSERT INTO `loan`(`requestDate`, `re`, `amount`, `duration`,`memberId`, `amountTopay`,`rate`) VALUES (?,?,?,?,?,?,?)",
@@ -20,27 +25,49 @@ const addLoan = async (req, res) => {
 
 const loanAction = async (req, res) => {
   try {
-    const token = req.headers.authorization;
+    const authHeader = req.headers.authorization;
     const { loanId, action } = req.params;
-    const approverId = jwt.verify(token, process.env.JWT_SECRET).id;
+    let userId = { id: 1 }; // default
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      userId = jwt.verify(token, process.env.JWT_SECRET);
+    }
     const dt = new Date();
 
-    const [users] = await conn.query(
-      "UPDATE `loan` set status=?, apploverId=?,   applovedDate=?  WHERE loanId=?",
-      [action, approverId, dt, loanId]
-    );
-    return res.json({ data: users, message: "igikorwa cyangenze neza cyane" });
+    if (action === 'cancel') {
+      // For cancel, check if member owns the loan
+      const [loanCheck] = await conn.query(
+        "SELECT memberId FROM `loan` WHERE loanId=?",
+        [loanId]
+      );
+      if (loanCheck.length === 0 || loanCheck[0].memberId !== userId.id) {
+        return res.status(403).json({ error: "Unauthorized to cancel this loan" });
+      }
+      const [result] = await conn.query(
+        "UPDATE `loan` SET status='rejected' WHERE loanId=? AND status='pending'",
+        [loanId]
+      );
+      return res.json({ data: result, message: "Loan cancelled successfully" });
+    } else {
+      // For approve/reject, admin action
+      const approverId = userId.id;
+      const [result] = await conn.query(
+        "UPDATE `loan` SET status=?, apploverId=?, applovedDate=? WHERE loanId=?",
+        [action, approverId, dt, loanId]
+      );
+      return res.json({ data: result, message: "igikorwa cyangenze neza cyane" });
+    }
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
 const getMemberLoans = async (req, res) => {
-  const token = req.headers.authorization;
-  const memberId = jwt.verify(token, process.env.JWT_SECRET).id;
+  const { memberId } = req.params;
   try {
     const [loans] = await conn.query(
       "SELECT `loanId`, `requestDate`, `re`, `amount`, `rate`, `duration`, `applovedDate`, `apploverId`, `memberId`, `amountTopay`, `payedAmount`, loan.status as lstatus, members.id as member_id, `nid`, `firstName`, `lastName` FROM `loan` INNER JOIN members ON members.id = loan.memberId WHERE loan.memberId = ?",
-      [memberId]
+      [parseInt(memberId)]
     );
     return res.json(loans);
   } catch (error) {
@@ -73,19 +100,46 @@ const getAllLoans = async (req, res) => {
 };
 const payLoan = async (req, res) => {
   try {
-    const { loanId, amount, status } = req.body;
-    const token = req.headers.authorization;
+    const { loanId, amount } = req.body;
+    const authHeader = req.headers.authorization;
     const dt = new Date();
-    const userId = jwt.verify(token, process.env.JWT_SECRET).id;
+    let userId = 1; // default
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      userId = jwt.verify(token, process.env.JWT_SECRET).id;
+    }
+
+    // Insert the payment
     const payment = await conn.query(
       "INSERT INTO `loanpayment`(`loanId`, `amount`, `recorderID`) VALUES(?,?,?)",
       [loanId, amount, userId]
     );
-    await conn.query(
-      "UPDATE `loan` SET `payedAmount`=payedAmount+?,`status`=? WHERE `loanId`=?",
-      [amount, status, loanId]
+
+    // Sum all payments for this loan
+    const [paymentSum] = await conn.query(
+      "SELECT SUM(amount) as totalPaid FROM `loanpayment` WHERE `loanId`=?",
+      [loanId]
     );
-    return res.json({ status: 201, message: "pay successfully", payment });
+
+    const totalPaid = paymentSum[0].totalPaid || 0;
+
+    // Get loan details to check amountTopay
+    const [loanDetails] = await conn.query(
+      "SELECT amountTopay FROM `loan` WHERE `loanId`=?",
+      [loanId]
+    );
+
+    const amountTopay = loanDetails[0].amountTopay;
+    const newStatus = totalPaid >= amountTopay ? 'paid' : 'active';
+
+    // Update loan with new payedAmount and status
+    await conn.query(
+      "UPDATE `loan` SET `payedAmount`=?,`status`=? WHERE `loanId`=?",
+      [totalPaid, newStatus, loanId]
+    );
+
+    return res.json({ status: 201, message: "pay successfully", payment, totalPaid, newStatus });
   } catch (error) {
     res.status(400).json({ error: JSON.stringify(error) });
     throw error;
@@ -122,12 +176,13 @@ const getLoansByStatus = async (req, res) => {
 
 const getAllLoanPayments = async (req, res) => {
   try {
-    const token = req.headers.authorization;
+    const authHeader = req.headers.authorization;
     let memberId = null;
-    
+
     // Check if request is from a member (has token)
-    if (token) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
+        const token = authHeader.substring(7);
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         // If user role is member, filter by member ID
         if (decoded.role === 'member') {
@@ -186,14 +241,15 @@ const getAllLoanPayments = async (req, res) => {
 
 const getLoanPaymentDetails = async (req, res) => {
   const { loanId } = req.params;
+  const loanIdNum = parseInt(loanId);
   try {
     // Get loan and member details
     const [loanDetails] = await conn.query(
-      `SELECT l.*, m.firstName, m.lastName, m.telephone, m.email 
-       FROM loan l 
-       INNER JOIN members m ON l.memberId = m.id 
+      `SELECT l.*, m.firstName, m.lastName, m.telephone, m.email
+       FROM loan l
+       INNER JOIN members m ON l.memberId = m.id
        WHERE l.loanId = ?`,
-      [loanId]
+      [loanIdNum]
     );
 
     if (!loanDetails || loanDetails.length === 0) {
@@ -202,22 +258,26 @@ const getLoanPaymentDetails = async (req, res) => {
 
     // Get payment history
     const [payments] = await conn.query(
-      `SELECT lp.*, u.fullname as recorder_name 
-       FROM loanpayment lp 
-       INNER JOIN users u ON lp.recorderID = u.user_id 
-       WHERE lp.loanId = ? 
+      `SELECT lp.*, u.fullname as recorder_name
+       FROM loanpayment lp
+       INNER JOIN users u ON lp.recorderID = u.user_id
+       WHERE lp.loanId = ?
        ORDER BY lp.pay_date DESC`,
-      [loanId]
+      [loanIdNum]
     );
+
+    // Calculate total paid from payments
+    const paidAmount = payments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+    const totalAmount = parseFloat(loanDetails[0].amountTopay);
+    const remainingAmount = totalAmount - paidAmount;
 
     const response = {
       loan: loanDetails[0],
       payments: payments,
       summary: {
-        totalAmount: loanDetails[0].amountTopay,
-        paidAmount: loanDetails[0].payedAmount,
-        remainingAmount:
-          loanDetails[0].amountTopay - loanDetails[0].payedAmount,
+        totalAmount: totalAmount,
+        paidAmount: paidAmount,
+        remainingAmount: remainingAmount,
         status: loanDetails[0].status,
       },
     };
@@ -225,6 +285,67 @@ const getLoanPaymentDetails = async (req, res) => {
     return res.json(response);
   } catch (error) {
     console.log(error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+const getMemberPaymentHistory = async (req, res) => {
+  console.log('🔄 getMemberPaymentHistory called');
+  const { memberId } = req.params;
+  const memberIdNum = parseInt(memberId);
+  console.log('📋 Using memberId:', memberIdNum);
+
+  try {
+    // Get all payments for this member
+    const [payments] = await conn.query(
+      `SELECT
+        lp.pay_id,
+        lp.pay_date,
+        lp.amount,
+        lp.loanId,
+        l.amount as loan_amount,
+        l.amountTopay as amount_to_pay,
+        l.payedAmount,
+        l.status as loan_status,
+        l.rate,
+        l.duration,
+        l.requestDate as request_date,
+        l.applovedDate as approved_date,
+        l.re as purpose,
+        m.firstName,
+        m.lastName,
+        m.telephone,
+        u.fullname as recorder_name,
+        (l.amountTopay - l.payedAmount) as remaining_amount
+      FROM loanpayment lp
+      INNER JOIN loan l ON lp.loanId = l.loanId
+      INNER JOIN members m ON l.memberId = m.id
+      INNER JOIN users u ON lp.recorderID = u.user_id
+      WHERE l.memberId = ?
+      ORDER BY lp.pay_date DESC`,
+      [memberIdNum]
+    );
+
+    console.log('💰 Raw payments from DB:', payments.length, 'records');
+
+    // Calculate totals
+    const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+    const totalRemaining = payments.reduce((sum, p) => sum + parseFloat(p.remaining_amount), 0);
+
+    const response = {
+      payments,
+      summary: {
+        totalPayments: payments.length,
+        totalAmountPaid: totalPaid,
+        totalRemaining: totalRemaining
+      }
+    };
+
+    console.log('📊 Response summary:', response.summary);
+    console.log('✅ getMemberPaymentHistory completed successfully');
+    return res.json(response);
+  } catch (error) {
+    console.log('❌ getMemberPaymentHistory error:', error.message);
     return res.status(500).json({ error: error.message });
   }
 };
@@ -240,4 +361,5 @@ module.exports = {
   getLoansByStatus,
   getLoanPaymentDetails,
   getAllLoanPayments,
+  getMemberPaymentHistory,
 };

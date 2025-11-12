@@ -4,7 +4,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { MagnifyingGlassIcon, PlusIcon, CalendarIcon, UserIcon, PhoneIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
-import useLoanPayments from '../../hooks/useLoanPayments';
+import useMemberPaymentHistory from '../../hooks/useMemberPaymentHistory';
 import server from '../../utils/server';
 
 interface Payment {
@@ -43,7 +43,7 @@ const Repayments: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const { payments, total, loading, error, refresh } = useLoanPayments(50);
+  const { payments, summary, loading, error, refresh } = useMemberPaymentHistory();
 
 
 
@@ -59,9 +59,9 @@ const Repayments: React.FC = () => {
     }
   };
 
-  // Fix the remaining balance calculation in the summary cards
-  const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const totalRemaining = payments.reduce((sum, p) => sum + Number(p.remaining_amount || 0), 0);
+  // Use summary from hook
+  const totalPaid = summary.totalAmountPaid;
+  const totalRemaining = summary.totalRemaining;
 
   // Fix search functionality
   const filteredPayments = payments.filter(payment => {
@@ -93,7 +93,7 @@ const Repayments: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('totalPayments')}</h3>
-          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">{total}</p>
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">{summary.totalPayments}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('totalAmountPaid')}</h3>

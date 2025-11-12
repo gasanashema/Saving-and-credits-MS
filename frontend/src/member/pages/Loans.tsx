@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import useLoans from '../../hooks/useLoans';
+import useMemberLoans from '../../hooks/useMemberLoans';
+import useLoanPaymentDetails from '../../hooks/useLoanPaymentDetails';
 import server from '../../utils/server';
-import { BackendLoan } from '../../types/loanTypes';
-import { MagnifyingGlassIcon, PlusIcon, CheckCircleIcon, XCircleIcon, BanknotesIcon } from '@heroicons/react/24/outline';
+import { BackendLoan, LoanPaymentDetails } from '../../types/loanTypes';
+import { MagnifyingGlassIcon, PlusIcon, CheckCircleIcon, XCircleIcon, BanknotesIcon, CreditCardIcon, ClockIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
 
@@ -36,14 +37,15 @@ const Loans: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('all');
 
   // hook returns backend-shaped loans
-  const { loans: backendLoans = [], loading, error } = useLoans(30);
-
+  const { loans: backendLoans = [], loading, error, refresh } = useMemberLoans();
   // displayLoans is the UI list we render and update locally
   const [displayLoans, setDisplayLoans] = useState<UiLoan[]>([]);
 
   // Convert backend -> UI shape whenever backend data changes
   useEffect(() => {
+    console.log('Converting backend loans to UI format. Backend loans length:', backendLoans?.length || 0);
     const converted: UiLoan[] = (backendLoans || []).map((l: BackendLoan) => {
+      console.log('Processing loan:', l);
       const amount = Number(l.amount ?? 0);
       const amountToPay = Number(l.amountToPay ?? l.amountTopay ?? 0);
       const payed = Number(l.payedAmount ?? 0);
@@ -56,7 +58,7 @@ const Loans: React.FC = () => {
 
       const memberName = `${l.firstName ?? ''} ${l.lastName ?? ''}`.trim() || `#${l.memberId}`;
 
-      return {
+      const uiLoan = {
         id: Number(l.loanId ?? Date.now()),
         member: memberName,
         amount,
@@ -66,14 +68,24 @@ const Loans: React.FC = () => {
         // backend doesn't provide purpose/term/interest/dueDate in sample, keep undefined
         notes: (l.re as string) || undefined
       } as UiLoan;
+
+      console.log('Converted to UI loan:', uiLoan);
+      return uiLoan;
     });
 
+    console.log('Final converted loans:', converted);
     setDisplayLoans(converted);
   }, [backendLoans]);
 
   const [selectedLoan, setSelectedLoan] = useState<UiLoan | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentErrors, setPaymentErrors] = useState({ amount: '' });
+
+  // payment details for selected loan
+  const { paymentDetails, loading: paymentLoading, error: paymentError, refresh: refreshPaymentDetails } = useLoanPaymentDetails(selectedLoan?.id || null);
 
   const { user } = useAuth();
   
@@ -103,6 +115,10 @@ const Loans: React.FC = () => {
   };
 
   // Filtering: tab + search
+  console.log('Display loans before filtering:', displayLoans);
+  console.log('Active tab:', activeTab);
+  console.log('Search term:', searchTerm);
+
   const filteredLoans = displayLoans
     .filter(loan => {
       if (activeTab === 'all') return true;
@@ -118,6 +134,8 @@ const Loans: React.FC = () => {
         loan.amount.toString().includes(q)
       );
     });
+
+  console.log('Filtered loans:', filteredLoans);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'RWF', minimumFractionDigits: 0 }).format(value);
@@ -166,24 +184,82 @@ const Loans: React.FC = () => {
       toast.success(t('loanRequestSubmitted'));
       
       // Refresh the loans list
-      window.location.reload();
+      refresh();
     } catch (error) {
       console.error('Loan application error:', error);
       toast.error('Failed to submit loan application');
     }
   };
 
-  const handleStatusChange = (loanId: number, newStatus: string) => {
-    setDisplayLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: newStatus } : l));
-    setIsViewModalOpen(false);
-    toast.success(newStatus === 'approved' || newStatus === 'active' ? t('loanApproved') : t('loanRejected'));
+  const handleStatusChange = async (loanId: number, action: string) => {
+    try {
+      await server.get(`/loans/actions/${loanId}/${action}`);
+      setDisplayLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: action === 'cancel' ? 'rejected' : action } : l));
+      setIsViewModalOpen(false);
+      toast.success(action === 'cancel' ? 'Loan cancelled successfully' : (action === 'approved' || action === 'active' ? t('loanApproved') : t('loanRejected')));
+      refresh();
+    } catch (error) {
+      console.error('Status change error:', error);
+      toast.error('Failed to update loan status');
+    }
+  };
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLoan) return;
+
+    const amount = Number(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setPaymentErrors({ amount: t('invalidAmount') });
+      return;
+    }
+
+    if (paymentDetails && amount > paymentDetails.summary.remainingAmount) {
+      setPaymentErrors({ amount: 'Amount exceeds remaining balance' });
+      return;
+    }
+
+    try {
+      await server.put('/loans/pay', {
+        loanId: selectedLoan.id,
+        amount
+      });
+
+      setPaymentAmount('');
+      setIsPaymentModalOpen(false);
+      toast.success('Payment successful');
+      // Refresh loans and payment details
+      refresh();
+      refreshPaymentDetails();
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Failed to make payment');
+    }
   };
 
   if (loading) return <div className="p-4 text-gray-500">{t('loading')}</div>;
   if (error) return <div className="p-4 text-red-500">{error}</div>;
 
+  // Calculate total active loans
+  const totalActiveLoans = displayLoans
+    .filter(loan => loan.status === 'active' || loan.status === 'approved')
+    .reduce((sum, loan) => sum + loan.amount, 0);
+
   return (
     <div className="space-y-6">
+      {/* Total Active Loans Summary */}
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-sm p-6 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">{t('totalActiveLoans')}</h2>
+            <p className="text-blue-100">{t('sumOfActiveLoans')}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-3xl font-bold">{formatCurrency(totalActiveLoans)}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t('loans')}</h1>
@@ -345,22 +421,125 @@ const Loans: React.FC = () => {
               <p className="text-base text-gray-800 dark:text-white mt-1">{selectedLoan.notes}</p>
             </div>}
 
+            {/* Repayment Section */}
+            {paymentDetails && (
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-4 flex items-center">
+                  <CreditCardIcon className="h-5 w-5 mr-2" />
+                  {t('repaymentDetails')}
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl">
+                    <div className="flex items-center">
+                      <BanknotesIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                      <div className="ml-3">
+                        <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('totalAmount')}</h4>
+                        <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">{formatCurrency(paymentDetails.summary.totalAmount)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded-xl">
+                    <div className="flex items-center">
+                      <CheckCircleIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
+                      <div className="ml-3">
+                        <h4 className="text-sm font-medium text-green-800 dark:text-green-300">{t('paidAmount')}</h4>
+                        <p className="text-lg font-semibold text-green-900 dark:text-green-100">{formatCurrency(paymentDetails.summary.paidAmount)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-xl">
+                    <div className="flex items-center">
+                      <ClockIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
+                      <div className="ml-3">
+                        <h4 className="text-sm font-medium text-red-800 dark:text-red-300">{t('remainingAmount')}</h4>
+                        <p className="text-lg font-semibold text-red-900 dark:text-red-100">{formatCurrency(paymentDetails.summary.remainingAmount)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {paymentDetails.payments.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('paymentHistory')}</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {paymentDetails.payments.map(payment => (
+                        <div key={payment.pay_id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <div>
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{formatCurrency(payment.amount)}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(payment.pay_date).toLocaleDateString()}</p>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{payment.recorder_name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              {selectedLoan.status === 'active' && (
+                <button onClick={() => setIsPaymentModalOpen(true)} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center">
+                  <CreditCardIcon className="h-5 w-5 mr-1" />Make Payment
+                </button>
+              )}
+
               <button onClick={() => setIsViewModalOpen(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                 {t('close')}
               </button>
 
-              {selectedLoan.status === 'pending' && <>
-                <button onClick={() => handleStatusChange(selectedLoan.id, 'rejected')} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 flex items-center">
-                  <XCircleIcon className="h-5 w-5 mr-1" />{t('rejectLoan')}
+              {selectedLoan.status === 'pending' && (
+                <button onClick={() => handleStatusChange(selectedLoan.id, 'cancel')} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 flex items-center">
+                  <XCircleIcon className="h-5 w-5 mr-1" />{t('cancelLoan')}
                 </button>
-                <button onClick={() => handleStatusChange(selectedLoan.id, 'active')} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center">
-                  <CheckCircleIcon className="h-5 w-5 mr-1" />{t('approveLoan')}
-                </button>
-              </>}
+              )}
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Make Payment">
+        <form onSubmit={handlePaymentSubmit} className="space-y-6">
+          {paymentDetails && (
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-600 dark:text-gray-300">Remaining Balance:</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200">{formatCurrency(paymentDetails.summary.remainingAmount)}</span>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="paymentAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Amount *</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><span className="text-gray-500 dark:text-gray-400">$</span></div>
+              <input
+                type="number"
+                id="paymentAmount"
+                value={paymentAmount}
+                onChange={(e) => {
+                  setPaymentAmount(e.target.value);
+                  if (paymentErrors.amount) setPaymentErrors({ amount: '' });
+                }}
+                min="1"
+                step="1"
+                max={paymentDetails?.summary.remainingAmount || undefined}
+                className="w-full pl-8 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="0"
+              />
+            </div>
+            {paymentErrors.amount && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{paymentErrors.amount}</p>}
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Cancel</button>
+            <button type="submit" className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Submit Payment</button>
+          </div>
+        </form>
       </Modal>
 
       {/* Apply for Loan Modal */}

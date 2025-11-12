@@ -1,27 +1,32 @@
 import { useCallback, useEffect, useState } from "react";
 import server from "../utils/server";
-import { BackendLoan, LoanStatus } from "../types/loanTypes";
+import { BackendLoan } from "../types/loanTypes";
 import { useAuth } from "../context/AuthContext";
 
-export default function useLoans(limit: number) {
+export default function useMemberLoans() {
   const { user } = useAuth();
   const [loans, setLoans] = useState<BackendLoan[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getLoans = useCallback(async () => {
+  const getMemberLoans = useCallback(async () => {
+    console.log('getMemberLoans called');
+    console.log('User:', user);
+    if (!user || user.id === undefined || user.id === null) {
+      console.log('User not authenticated');
+      setError("User not authenticated");
+      return;
+    }
+
+    console.log('Making API call for member ID:', parseInt(user.id));
     setLoading(true);
     setError(null);
 
     try {
-      // Use member-specific endpoint for members, admin endpoint for admins
-      const endpoint = user?.role === 'member'
-        ? `/loans/member/${user.id}`
-        : (limit ? `/loans/${limit}` : `/loans/30`);
-        
-      const resp = await server.get<BackendLoan[]>(endpoint);
+      const resp = await server.get<BackendLoan[]>(`/loans/member/${parseInt(user.id)}`);
+      console.log('API Response received:', resp);
       const raw = Array.isArray(resp.data) ? resp.data : [];
-
+      console.log('Raw data from API:', raw);
       // Normalize backend field names to BackendLoan interface
       const normalized: BackendLoan[] = raw.map((item: any) => ({
         loanId: Number(item.loanId ?? item.loan_id ?? item.id ?? 0),
@@ -45,21 +50,27 @@ export default function useLoans(limit: number) {
 
       setLoans(normalized);
     } catch (err) {
-      console.error("Failed to fetch loans:", err);
+      console.error("Failed to fetch member loans:", err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, [user, limit]);
+  }, [user]);
 
   useEffect(() => {
-    getLoans();
-  }, [getLoans]);
+    console.log('useMemberLoans useEffect triggered, user:', user);
+    if (user && user.id !== undefined && user.id !== null) {
+      console.log('Calling getMemberLoans');
+      getMemberLoans();
+    } else {
+      console.log('User not authenticated, skipping API call');
+    }
+  }, [getMemberLoans, user]);
 
-  return { 
-    loans, 
-    loading, 
-    error, 
-    refresh: getLoans 
+  return {
+    loans,
+    loading,
+    error,
+    refresh: getMemberLoans
   };
 }

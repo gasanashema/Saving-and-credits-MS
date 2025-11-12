@@ -36,3 +36,22 @@ export interface Loan {
 export type LoanStatus = 'pending' | 'active' | 'approved' | 'paid' | 'rejected';
 export type LoanPurpose = 'business' | 'education' | 'housing' | 'personal' | 'emergency' | 'agriculture';
 
+export interface LoanPayment {
+  pay_id: number;
+  pay_date: string;
+  amount: number;
+  recorder_name: string;
+  [key: string]: any;
+}
+
+export interface LoanPaymentDetails {
+  loan: BackendLoan;
+  payments: LoanPayment[];
+  summary: {
+    totalAmount: number;
+    paidAmount: number;
+    remainingAmount: number;
+    status: string;
+  };
+}
+

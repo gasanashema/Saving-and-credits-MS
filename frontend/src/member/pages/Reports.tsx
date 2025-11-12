@@ -18,98 +18,78 @@ import * as XLSX from 'xlsx';
 
 const fetchReportsData = async () => {
   try {
-    const [membersRes, loansRes] = await Promise.all([
-      server.get('members'),
-      server.get('loans')
+    const [loansRes, paymentsRes, penaltiesRes] = await Promise.all([
+      server.get('loans/member-loans'), // Member's loans
+      server.get('loans/member-payments'), // Member's payments
+      server.get('penalities/data/0/50/all') // Member's penalties
     ]);
-    
+
     return {
-      members: membersRes.data || [],
-      loans: loansRes.data || []
+      loans: loansRes.data || [],
+      payments: paymentsRes.data?.payments || [],
+      penalties: penaltiesRes.data || []
     };
   } catch (error) {
     console.error('Error fetching data:', error);
-    return { members: [], loans: [] };
+    return { loans: [], payments: [], penalties: [] };
   }
 };
 
 const processData = (rawData: any) => {
-  const { members, loans } = rawData;
-  
-  // Process member growth for all 12 months
+  const { loans, payments, penalties } = rawData;
+
+  // Process payment history over months
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const memberGrowth = months.map((month, i) => {
-    // Calculate cumulative member count based on creation dates
-    const monthEndDate = new Date(2024, i + 1, 0); // Last day of month
-    const membersUpToMonth = members.filter((member: any) => {
-      const createdDate = new Date(member.created_at || member.createdAt || '2024-01-01');
-      return createdDate <= monthEndDate;
-    }).length;
-    
+  const paymentGrowth = months.map((month, i) => {
+    const monthStart = new Date(2024, i, 1);
+    const monthEnd = new Date(2024, i + 1, 0);
+    const paymentsInMonth = payments.filter((p: any) => {
+      const payDate = new Date(p.pay_date);
+      return payDate >= monthStart && payDate <= monthEnd;
+    });
+    const totalAmount = paymentsInMonth.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+
     return {
       month,
-      members: Math.max(membersUpToMonth, (i + 1) * 3) // Ensure progressive growth
+      amount: totalAmount,
+      count: paymentsInMonth.length
     };
   });
-  
-  // Process loan data for all 12 months
-  const loanGrowth = months.map((month, i) => {
-    const monthEndDate = new Date(2024, i + 1, 0);
-    const loansUpToMonth = loans.filter((loan: any) => {
-      const requestDate = new Date(loan.requestDate || '2024-01-01');
-      return requestDate <= monthEndDate;
-    }).length;
-    
-    return {
-      month,
-      loans: Math.max(loansUpToMonth, Math.floor((i + 1) * 2.1)) // Ensure progressive growth
-    };
-  });
-  
+
+  // Process loan data
   const loanStatusCounts = {
     active: loans.filter((l: any) => l.status === 'active').length,
     paid: loans.filter((l: any) => l.status === 'paid').length,
     pending: loans.filter((l: any) => l.status === 'pending').length,
-    rejected: loans.filter((l: any) => l.status === 'rejected').length
+    rejected: loans.filter((l: any) => l.status === 'rejected' || l.status === 'cancelled').length
   };
-  
-  const totalLoansCount = Object.values(loanStatusCounts).reduce((sum, count) => sum + count, 0);
-  
-  const loanStatus = totalLoansCount === 0 ? [
-    { name: 'Active', value: 5, color: '#3B82F6' },
-    { name: 'Paid', value: 8, color: '#10B981' },
-    { name: 'Pending', value: 3, color: '#F59E0B' },
-    { name: 'Rejected', value: 2, color: '#EF4444' }
-  ] : [
+
+  const loanStatus = [
     { name: 'Active', value: loanStatusCounts.active, color: '#3B82F6' },
     { name: 'Paid', value: loanStatusCounts.paid, color: '#10B981' },
     { name: 'Pending', value: loanStatusCounts.pending, color: '#F59E0B' },
     { name: 'Rejected', value: loanStatusCounts.rejected, color: '#EF4444' }
   ].filter(item => item.value > 0);
-  
-  // Calculate savings growth over 12 months
-  const savingsGrowth = months.map((month, i) => {
-    const baseAmount = 50000;
-    const growth = baseAmount + (i * 25000) + Math.random() * 10000;
-    return {
-      month,
-      amount: Math.floor(growth)
-    };
-  });
-  
-  const totalSavings = members.reduce((sum: number, member: any) => sum + (member.balance || 0), 0);
+
+  // Calculate totals
   const totalLoans = loans.reduce((sum: number, loan: any) => sum + (loan.amountTopay || loan.amount || 0), 0);
-  
+  const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+  const totalPenalties = penalties.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+  const paidPenalties = penalties.filter((p: any) => p.pstatus === 'paid').length;
+  const pendingPenalties = penalties.filter((p: any) => p.pstatus === 'wait').length;
+
   return {
-    memberGrowth,
-    loanGrowth,
+    paymentGrowth,
     loanStatus,
-    savingsGrowth,
     stats: {
-      totalMembers: members.length,
-      totalSavings,
-      totalLoans,
-      activeLoans: loans.filter((l: any) => l.status === 'active').length
+      totalLoans: loans.length,
+      totalLoanAmount: totalLoans,
+      totalPaid,
+      activeLoans: loanStatusCounts.active,
+      totalPenalties: penalties.length,
+      paidPenalties,
+      pendingPenalties,
+      totalPenaltyAmount: totalPenalties
     }
   };
 };
@@ -119,11 +99,18 @@ const Reports: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>({
-    memberGrowth: [],
-    loanGrowth: [],
+    paymentGrowth: [],
     loanStatus: [],
-    savingsGrowth: [],
-    stats: { totalMembers: 0, totalSavings: 0, totalLoans: 0, activeLoans: 0 }
+    stats: {
+      totalLoans: 0,
+      totalLoanAmount: 0,
+      totalPaid: 0,
+      activeLoans: 0,
+      totalPenalties: 0,
+      paidPenalties: 0,
+      pendingPenalties: 0,
+      totalPenaltyAmount: 0
+    }
   });
   
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
@@ -227,7 +214,7 @@ const Reports: React.FC = () => {
         <div className="flex border-b border-gray-200 dark:border-gray-700">
           {[
             { id: 'overview', icon: ChartBarIcon, label: 'Overview' },
-            { id: 'members', icon: UserGroupIcon, label: 'Members' },
+            { id: 'payments', icon: CurrencyDollarIcon, label: 'Payments' },
             { id: 'loans', icon: BanknotesIcon, label: 'Loans' }
           ].map(({ id, icon: Icon, label }) => (
             <button
@@ -249,53 +236,54 @@ const Reports: React.FC = () => {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatsCard 
-              title="Total Members" 
-              value={data.stats.totalMembers.toString()} 
-              icon={<UserGroupIcon className="h-6 w-6" />} 
-              iconBgColor="bg-blue-500" 
+            <StatsCard
+              title="Total Loans"
+              value={data.stats.totalLoans.toString()}
+              icon={<BanknotesIcon className="h-6 w-6" />}
+              iconBgColor="bg-blue-500"
             />
-            <StatsCard 
-              title="Total Savings" 
-              value={formatCurrency(data.stats.totalSavings)} 
-              icon={<CurrencyDollarIcon className="h-6 w-6" />} 
-              iconBgColor="bg-green-500" 
+            <StatsCard
+              title="Total Loan Amount"
+              value={formatCurrency(data.stats.totalLoanAmount)}
+              icon={<CurrencyDollarIcon className="h-6 w-6" />}
+              iconBgColor="bg-green-500"
             />
-            <StatsCard 
-              title="Total Loans" 
-              value={formatCurrency(data.stats.totalLoans)} 
-              icon={<BanknotesIcon className="h-6 w-6" />} 
-              iconBgColor="bg-yellow-500" 
+            <StatsCard
+              title="Total Paid"
+              value={formatCurrency(data.stats.totalPaid)}
+              icon={<ArrowUpIcon className="h-6 w-6" />}
+              iconBgColor="bg-yellow-500"
             />
-            <StatsCard 
-              title="Active Loans" 
-              value={data.stats.activeLoans.toString()} 
-              icon={<ArrowUpIcon className="h-6 w-6" />} 
-              iconBgColor="bg-purple-500" 
+            <StatsCard
+              title="Active Loans"
+              value={data.stats.activeLoans.toString()}
+              icon={<ChartBarIcon className="h-6 w-6" />}
+              iconBgColor="bg-purple-500"
             />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ChartCard title="Member Growth (12 Months)">
+            <ChartCard title="Payment History (12 Months)">
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data.memberGrowth}>
+                  <AreaChart data={data.paymentGrowth}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis dataKey="month" stroke="#6B7280" />
                     <YAxis stroke="#6B7280" />
-                    <Tooltip 
+                    <Tooltip
                       contentStyle={{
                         backgroundColor: '#1F2937',
                         borderColor: '#374151',
                         color: '#F9FAFB'
-                      }} 
+                      }}
+                      formatter={(value: any) => [formatCurrency(value), 'Amount']}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="members" 
-                      stroke="#3B82F6" 
-                      fill="#3B82F6" 
-                      fillOpacity={0.2} 
+                    <Area
+                      type="monotone"
+                      dataKey="amount"
+                      stroke="#10B981"
+                      fill="#10B981"
+                      fillOpacity={0.2}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -328,28 +316,29 @@ const Reports: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'members' && (
+      {activeTab === 'payments' && (
         <div className="space-y-6">
-          <ChartCard title="Member Growth Trend (12 Months)">
+          <ChartCard title="Payment Trend (12 Months)">
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data.memberGrowth}>
+                <LineChart data={data.paymentGrowth}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="month" stroke="#6B7280" />
                   <YAxis stroke="#6B7280" />
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{
                       backgroundColor: '#1F2937',
                       borderColor: '#374151',
                       color: '#F9FAFB'
-                    }} 
+                    }}
+                    formatter={(value: any) => [formatCurrency(value), 'Amount']}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="members" 
-                    stroke="#3B82F6" 
+                  <Line
+                    type="monotone"
+                    dataKey="amount"
+                    stroke="#10B981"
                     strokeWidth={3}
-                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+                    dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -357,52 +346,49 @@ const Reports: React.FC = () => {
           </ChartCard>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ChartCard title="Savings Growth Over Time">
+            <ChartCard title="Payment Count by Month">
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data.savingsGrowth}>
+                  <BarChart data={data.paymentGrowth}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis dataKey="month" stroke="#6B7280" />
                     <YAxis stroke="#6B7280" />
-                    <Tooltip 
+                    <Tooltip
                       contentStyle={{
                         backgroundColor: '#1F2937',
                         borderColor: '#374151',
                         color: '#F9FAFB'
                       }}
-                      formatter={(value: any) => [formatCurrency(value), 'Savings']}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="amount" 
-                      stroke="#10B981" 
-                      fill="#10B981" 
-                      fillOpacity={0.3} 
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </ChartCard>
-
-            <ChartCard title="Member Registration by Month">
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.memberGrowth}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="month" stroke="#6B7280" />
-                    <YAxis stroke="#6B7280" />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: '#1F2937',
-                        borderColor: '#374151',
-                        color: '#F9FAFB'
-                      }} 
-                    />
-                    <Bar dataKey="members" fill="#8B5CF6" />
+                    <Bar dataKey="count" fill="#3B82F6" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </ChartCard>
+
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Penalty Summary</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Total Penalties</span>
+                    <span className="font-medium">{data.stats.totalPenalties}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Paid</span>
+                    <span className="font-medium text-green-600">{data.stats.paidPenalties}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Pending</span>
+                    <span className="font-medium text-red-600">{data.stats.pendingPenalties}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Total Amount</span>
+                    <span className="font-medium">{formatCurrency(data.stats.totalPenaltyAmount)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
