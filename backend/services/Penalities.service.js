@@ -94,30 +94,23 @@ const getTotal = async (req, res) => {
     const [data] = await conn.query(sql);
     return res.json(data[0].total);
   } catch (error) {
-    console.log({ search });
     res.status(400).json({ error: JSON.stringify(error) });
     throw error;
   }
 };
 
 const getMemberPenalties = async (req, res) => {
-  console.log('🔄 getMemberPenalties called');
   const { memberId } = req.params;
   const memberIdNum = parseInt(memberId);
-  console.log('📋 Using memberId:', memberIdNum);
 
   try {
     const [penalties] = await conn.query(
-      "SELECT id,firstName,lastName,date,amount,PayedArt,confirmedBy,p_id, pstatus, ptypes.title as penaltyType FROM penalties INNER JOIN members ON id = memberId LEFT JOIN ptypes ON ptypes.ptId = penalties.pType WHERE id = ? ORDER BY pstatus,date",
+      "SELECT id,firstName,lastName,telephone,date,amount,PayedArt,confirmedBy,p_id, pstatus, pType as reason FROM penalties INNER JOIN members ON id = memberId WHERE id = ? ORDER BY pstatus,date",
       [memberIdNum]
     );
 
-    console.log('⚠️ Raw penalties from DB:', penalties.length, 'records');
-    console.log('📋 First penalty:', penalties[0]);
-    console.log('✅ getMemberPenalties completed successfully');
     return res.json(penalties);
   } catch (error) {
-    console.log('❌ getMemberPenalties error:', error.message);
     return res.status(500).json({ error: error.message });
   }
 };

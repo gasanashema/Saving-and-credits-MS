@@ -75,6 +75,7 @@ const Loans: React.FC = () => {
 
     console.log('Final converted loans:', converted);
     setDisplayLoans(converted);
+    console.log('Display loans set in page:', converted);
   }, [backendLoans]);
 
   const [selectedLoan, setSelectedLoan] = useState<UiLoan | null>(null);

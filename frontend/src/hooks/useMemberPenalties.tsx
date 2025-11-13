@@ -13,8 +13,8 @@ export interface Penalty {
   firstName: string;
   lastName: string;
   id: number;
-  pType?: number;
-  pTypeName?: string;
+  telephone: string;
+  reason: string;
 }
 
 export interface UseMemberPenaltiesResult {
@@ -34,9 +34,10 @@ export default function useMemberPenalties(): UseMemberPenaltiesResult {
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-
+  
   const fetchPenalties = useCallback(async () => {
-    if (!user || !user.id) {
+
+    if (!user || user.id === undefined || user.id === null) {
       setError("User not authenticated");
       return;
     }
@@ -45,7 +46,6 @@ export default function useMemberPenalties(): UseMemberPenaltiesResult {
     setError(null);
 
     try {
-      // Get penalties for member (backend filters by memberId if member role)
       const resp = await server.get(`/penalities/member/${user.id}`);
       const rawPenalties: any[] = Array.isArray(resp.data) ? resp.data : [];
 
@@ -60,14 +60,13 @@ export default function useMemberPenalties(): UseMemberPenaltiesResult {
         firstName: p.firstName ?? "",
         lastName: p.lastName ?? "",
         id: Number(p.id ?? 0),
-        pType: p.pType ? Number(p.pType) : undefined,
-        pTypeName: p.pTypeName ?? undefined,
+        telephone: p.telephone ?? "",
+        reason: p.reason ?? "",
       }));
 
       setPenalties(normalized);
       setTotal(normalized.length);
     } catch (err) {
-      console.error("useMemberPenalties error:", err);
       setError(err instanceof Error ? err.message : String(err));
       setPenalties([]);
       setTotal(0);
@@ -77,7 +76,7 @@ export default function useMemberPenalties(): UseMemberPenaltiesResult {
   }, [user]);
 
   useEffect(() => {
-    if (user && user.id) {
+    if (user && user.id !== undefined && user.id !== null) {
       void fetchPenalties();
     }
   }, [fetchPenalties, user]);

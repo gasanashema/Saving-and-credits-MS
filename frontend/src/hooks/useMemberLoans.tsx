@@ -10,23 +10,17 @@ export default function useMemberLoans() {
   const [error, setError] = useState<string | null>(null);
 
   const getMemberLoans = useCallback(async () => {
-    console.log('getMemberLoans called');
-    console.log('User:', user);
     if (!user || user.id === undefined || user.id === null) {
-      console.log('User not authenticated');
       setError("User not authenticated");
       return;
     }
 
-    console.log('Making API call for member ID:', parseInt(user.id));
     setLoading(true);
     setError(null);
 
     try {
       const resp = await server.get<BackendLoan[]>(`/loans/member/${parseInt(user.id)}`);
-      console.log('API Response received:', resp);
       const raw = Array.isArray(resp.data) ? resp.data : [];
-      console.log('Raw data from API:', raw);
       // Normalize backend field names to BackendLoan interface
       const normalized: BackendLoan[] = raw.map((item: any) => ({
         loanId: Number(item.loanId ?? item.loan_id ?? item.id ?? 0),
