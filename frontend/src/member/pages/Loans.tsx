@@ -43,9 +43,7 @@ const Loans: React.FC = () => {
 
   // Convert backend -> UI shape whenever backend data changes
   useEffect(() => {
-    console.log('Converting backend loans to UI format. Backend loans length:', backendLoans?.length || 0);
     const converted: UiLoan[] = (backendLoans || []).map((l: BackendLoan) => {
-      console.log('Processing loan:', l);
       const amount = Number(l.amount ?? 0);
       const amountToPay = Number(l.amountToPay ?? l.amountTopay ?? 0);
       const payed = Number(l.payedAmount ?? 0);
@@ -69,13 +67,10 @@ const Loans: React.FC = () => {
         notes: (l.re as string) || undefined
       } as UiLoan;
 
-      console.log('Converted to UI loan:', uiLoan);
       return uiLoan;
     });
 
-    console.log('Final converted loans:', converted);
     setDisplayLoans(converted);
-    console.log('Display loans set in page:', converted);
   }, [backendLoans]);
 
   const [selectedLoan, setSelectedLoan] = useState<UiLoan | null>(null);
@@ -116,10 +111,6 @@ const Loans: React.FC = () => {
   };
 
   // Filtering: tab + search
-  console.log('Display loans before filtering:', displayLoans);
-  console.log('Active tab:', activeTab);
-  console.log('Search term:', searchTerm);
-
   const filteredLoans = displayLoans
     .filter(loan => {
       if (activeTab === 'all') return true;
@@ -135,8 +126,6 @@ const Loans: React.FC = () => {
         loan.amount.toString().includes(q)
       );
     });
-
-  console.log('Filtered loans:', filteredLoans);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'RWF', minimumFractionDigits: 0 }).format(value);

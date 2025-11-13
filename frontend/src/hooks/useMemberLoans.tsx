@@ -52,12 +52,8 @@ export default function useMemberLoans() {
   }, [user]);
 
   useEffect(() => {
-    console.log('useMemberLoans useEffect triggered, user:', user);
     if (user && user.id !== undefined && user.id !== null) {
-      console.log('Calling getMemberLoans');
       getMemberLoans();
-    } else {
-      console.log('User not authenticated, skipping API call');
     }
   }, [getMemberLoans, user]);
 
