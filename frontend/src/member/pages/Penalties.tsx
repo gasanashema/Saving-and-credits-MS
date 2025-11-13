@@ -32,7 +32,6 @@ const Penalties: React.FC = () => {
   const [paymentPhone, setPaymentPhone] = useState('');
 
   const { penalties, total, loading, error, refresh } = useMemberPenalties();
-  console.log('Penalties data in page:', penalties);
 
   const getPenaltyTypeName = (pType: number) => {
     const types: { [key: number]: string } = {

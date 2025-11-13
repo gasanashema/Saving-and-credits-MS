@@ -44,17 +44,23 @@ const Repayments: React.FC = () => {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const { payments, summary, loading, error, refresh } = useMemberPaymentHistory();
+  console.log('Repayments page: payments data:', payments);
+  console.log('Repayments page: summary:', summary);
 
 
 
   const handleMarkAsPaid = async (paymentId: number) => {
+    console.log('handleMarkAsPaid called with paymentId:', paymentId);
     try {
+      console.log('Making PUT request to /loans/payment/' + paymentId + '/mark-paid');
       await server.put(`/loans/payment/${paymentId}/mark-paid`);
+      console.log('PUT request successful, refreshing data');
       refresh();
       toast.success('Payment marked as paid successfully');
       setIsDetailModalOpen(false);
     } catch (error) {
       console.error('Mark as paid error:', error);
+      console.log('Failed to mark payment as paid');
       toast.error('Failed to mark payment as paid');
     }
   };
@@ -64,6 +70,7 @@ const Repayments: React.FC = () => {
   const totalRemaining = summary.totalRemaining;
 
   // Fix search functionality
+  console.log('Filtering payments, searchTerm:', searchTerm);
   const filteredPayments = payments.filter(payment => {
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase().trim();
@@ -74,6 +81,7 @@ const Repayments: React.FC = () => {
       String(payment.remaining_amount).includes(searchLower)
     );
   });
+  console.log('Filtered payments:', filteredPayments);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -84,8 +92,16 @@ const Repayments: React.FC = () => {
     }).format(value);
   };
 
-  if (loading) return <div className="p-4 text-gray-500">{t('loading')}</div>;
-  if (error) return <div className="p-4 text-red-500">{error}</div>;
+  console.log('Repayments page: loading:', loading, 'error:', error);
+  if (loading) {
+    console.log('Showing loading');
+    return <div className="p-4 text-gray-500">{t('loading')}</div>;
+  }
+  if (error) {
+    console.log('Showing error:', error);
+    return <div className="p-4 text-red-500">{error}</div>;
+  }
+  console.log('Rendering repayments table');
 
   return (
     <div className="space-y-6">
@@ -312,22 +328,14 @@ const Repayments: React.FC = () => {
             )}
 
             {/* Action Buttons */}
-            {selectedPayment.loan_status !== 'paid' && (
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
-                <button
-                  onClick={() => setIsDetailModalOpen(false)}
-                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => handleMarkAsPaid(selectedPayment.pay_id)}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-                >
-                  Mark as Paid
-                </button>
-              </div>
-            )}
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
       </Modal>

@@ -52,19 +52,26 @@ export default function useMemberPaymentHistory(): UseMemberPaymentHistoryResult
   const [error, setError] = useState<string | null>(null);
 
   const fetchPaymentHistory = useCallback(async () => {
-    if (!user || !user.id) {
+    console.log('useMemberPaymentHistory fetchPaymentHistory called');
+    if (!user || user.id === undefined || user.id === null) {
+      console.log('User not authenticated for payment history');
       setError("User not authenticated");
       return;
     }
+    console.log('About to fetch payment history for user.id:', user.id);
 
     setLoading(true);
     setError(null);
 
     try {
+      console.log('Making API call to /loans/member-payment-history/' + user.id);
       const resp = await server.get(`/loans/member-payment-history/${user.id}`);
+      console.log('API response received:', resp);
       const data = resp?.data ?? resp;
+      console.log('Data from API:', data);
 
       const rawPayments: any[] = Array.isArray(data?.payments) ? data.payments : [];
+      console.log('Raw payments from API:', rawPayments);
       const normalized: PaymentHistoryItem[] = rawPayments.map((p: any) => ({
         pay_id: Number(p.pay_id ?? 0),
         pay_date: p.pay_date ?? "",
@@ -86,14 +93,21 @@ export default function useMemberPaymentHistory(): UseMemberPaymentHistoryResult
         remaining_amount: Number(p.remaining_amount ?? 0),
       }));
 
+      console.log('Normalized payments:', normalized);
       setPayments(normalized);
       setSummary(data.summary || {
         totalPayments: normalized.length,
         totalAmountPaid: normalized.reduce((sum, p) => sum + p.amount, 0),
         totalRemaining: normalized.reduce((sum, p) => sum + p.remaining_amount, 0)
       });
+      console.log('Summary set:', data.summary || {
+        totalPayments: normalized.length,
+        totalAmountPaid: normalized.reduce((sum, p) => sum + p.amount, 0),
+        totalRemaining: normalized.reduce((sum, p) => sum + p.remaining_amount, 0)
+      });
     } catch (err) {
       console.error("useMemberPaymentHistory error:", err);
+      console.log('API call failed for payment history:', err);
       setError(err instanceof Error ? err.message : String(err));
       setPayments([]);
       setSummary({ totalPayments: 0, totalAmountPaid: 0, totalRemaining: 0 });
@@ -103,8 +117,12 @@ export default function useMemberPaymentHistory(): UseMemberPaymentHistoryResult
   }, [user]);
 
   useEffect(() => {
-    if (user && user.id) {
+    console.log('useMemberPaymentHistory useEffect triggered, user:', user);
+    if (user && user.id !== undefined && user.id !== null) {
+      console.log('Calling fetchPaymentHistory');
       void fetchPaymentHistory();
+    } else {
+      console.log('User not authenticated, skipping API call for payment history');
     }
   }, [fetchPaymentHistory, user]);
 
