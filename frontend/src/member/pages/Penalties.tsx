@@ -18,6 +18,8 @@ interface Penalty {
   firstName: string;
   lastName: string;
   id: number;
+  telephone: string;
+  reason: string;
 }
 
 
@@ -26,8 +28,20 @@ const Penalties: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPenalty, setSelectedPenalty] = useState<Penalty | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentPhone, setPaymentPhone] = useState('');
 
   const { penalties, total, loading, error, refresh } = useMemberPenalties();
+  console.log('Penalties data in page:', penalties);
+
+  const getPenaltyTypeName = (pType: number) => {
+    const types: { [key: number]: string } = {
+      1: 'GUSIBA GUTERA',
+      2: 'GUSAKUZA',
+      3: 'GUKERERWA'
+    };
+    return types[pType] || 'Unknown';
+  };
 
   const handlePayPenalty = async (penaltyId: number) => {
     try {
@@ -112,7 +126,7 @@ const Penalties: React.FC = () => {
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {filteredPenalties.map((penalty) => (
-              <motion.tr 
+              <motion.tr
                 key={penalty.p_id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -129,22 +143,14 @@ const Penalties: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    penalty.pstatus === 'paid' 
+                    penalty.pstatus === 'paid'
                       ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
                       : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
                   }`}>
                     {penalty.pstatus === 'paid' ? 'Paid' : 'Pending'}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm space-x-2">
-                  {penalty.pstatus === 'wait' && (
-                    <button
-                      onClick={() => handlePayPenalty(penalty.p_id)}
-                      className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
-                    >
-                      Mark Paid
-                    </button>
-                  )}
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                   <button
                     onClick={() => {
                       setSelectedPenalty(penalty);
@@ -157,6 +163,11 @@ const Penalties: React.FC = () => {
                 </td>
               </motion.tr>
             ))}
+            {filteredPenalties.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">{t('noData')}</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -190,6 +201,18 @@ const Penalties: React.FC = () => {
               </div>
             </div>
 
+            {selectedPenalty.reason && (
+              <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl">
+                <div className="flex items-center">
+                  <ExclamationTriangleIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                  <div className="ml-3">
+                    <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300">{getPenaltyTypeName(Number(selectedPenalty.reason) || 0)}</h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-400">Penalty Reason</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-4">
               <h4 className="font-medium text-gray-900 dark:text-white flex items-center">
                 <UserIcon className="h-5 w-5 mr-2 text-red-500" />
@@ -218,8 +241,87 @@ const Penalties: React.FC = () => {
                 )}
               </div>
             </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+              {selectedPenalty.pstatus === 'wait' && (
+                <button
+                  onClick={() => {
+                    setPaymentPhone(selectedPenalty.telephone || '');
+                    setIsPaymentModalOpen(true);
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Pay Now
+                </button>
+              )}
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        title="Pay Penalty"
+      >
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          if (selectedPenalty) {
+            handlePayPenalty(selectedPenalty.p_id);
+            setIsPaymentModalOpen(false);
+            setIsDetailModalOpen(false);
+          }
+        }} className="space-y-6">
+          <div>
+            <label htmlFor="paymentPhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number *</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <PhoneIcon className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="tel"
+                id="paymentPhone"
+                value={paymentPhone}
+                onChange={(e) => setPaymentPhone(e.target.value)}
+                className="w-full pl-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Enter phone number"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-300">Amount to Pay:</span>
+              <span className="font-semibold text-gray-800 dark:text-gray-200">
+                {selectedPenalty ? formatCurrency(selectedPenalty.amount) : ''}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+            <button
+              type="button"
+              onClick={() => setIsPaymentModalOpen(false)}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+              Pay Now
+            </button>
+          </div>
+        </form>
       </Modal>
 
     </div>

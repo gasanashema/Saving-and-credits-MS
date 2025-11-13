@@ -94,7 +94,6 @@ const getAllLoans = async (req, res) => {
     );
     return res.json(loans);
   } catch (error) {
-    console.log();
     res.status(400).json({ error: error.message });
   }
 };
@@ -155,7 +154,6 @@ const getTotal = async (req, res) => {
     const [data] = await conn.query(sql);
     return res.json(data[0].total);
   } catch (error) {
-    console.log({ search });
     res.status(400).json({ error: JSON.stringify(error) });
     throw error;
   }
@@ -169,7 +167,6 @@ const getLoansByStatus = async (req, res) => {
     );
     return res.json(loans);
   } catch (error) {
-    console.log();
     res.status(400).json({ error: error.message });
   }
 };
@@ -290,10 +287,8 @@ const getLoanPaymentDetails = async (req, res) => {
 };
 
 const getMemberPaymentHistory = async (req, res) => {
-  console.log('🔄 getMemberPaymentHistory called');
   const { memberId } = req.params;
   const memberIdNum = parseInt(memberId);
-  console.log('📋 Using memberId:', memberIdNum);
 
   try {
     // Get all payments for this member
@@ -326,8 +321,6 @@ const getMemberPaymentHistory = async (req, res) => {
       [memberIdNum]
     );
 
-    console.log('💰 Raw payments from DB:', payments.length, 'records');
-
     // Calculate totals
     const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
     const totalRemaining = payments.reduce((sum, p) => sum + parseFloat(p.remaining_amount), 0);
@@ -341,11 +334,8 @@ const getMemberPaymentHistory = async (req, res) => {
       }
     };
 
-    console.log('📊 Response summary:', response.summary);
-    console.log('✅ getMemberPaymentHistory completed successfully');
     return res.json(response);
   } catch (error) {
-    console.log('❌ getMemberPaymentHistory error:', error.message);
     return res.status(500).json({ error: error.message });
   }
 };

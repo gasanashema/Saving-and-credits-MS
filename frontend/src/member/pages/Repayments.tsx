@@ -136,7 +136,7 @@ const Repayments: React.FC = () => {
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {filteredPayments.map((payment) => (
-              <motion.tr 
+              <motion.tr
                 key={payment.pay_id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -167,6 +167,11 @@ const Repayments: React.FC = () => {
                 </td>
               </motion.tr>
             ))}
+            {filteredPayments.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">{t('noData')}</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
