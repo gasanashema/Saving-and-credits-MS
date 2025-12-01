@@ -1,30 +1,19 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
-import { notifications } from '../../utils/mockData';
 import { BellIcon, CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, TrashIcon, EnvelopeOpenIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
-interface Notification {
-  id: number;
-  title: string;
-  message: string;
-  date: string;
-  read: boolean;
-  type?: string;
-}
+import useMemberNotifications from '../../hooks/useMemberNotifications';
+
 const Notifications: React.FC = () => {
-  const {
-    t
-  } = useLanguage();
-  const [notificationsList, setNotificationsList] = useState<Notification[]>(notifications.map(n => ({
-    ...n,
-    type: n.title.toLowerCase().includes('loan') ? 'loan' : n.title.toLowerCase().includes('repayment') ? 'repayment' : n.title.toLowerCase().includes('member') ? 'member' : n.title.toLowerCase().includes('savings') ? 'savings' : 'system'
-  })));
+  const { t } = useLanguage();
+  const { notifications: notificationsList, unreadCount, loading, error, markAsRead, markAllAsRead } = useMemberNotifications();
   const [activeFilter, setActiveFilter] = useState('all');
   const filteredNotifications = activeFilter === 'all' ? notificationsList : activeFilter === 'unread' ? notificationsList.filter(n => !n.read) : notificationsList.filter(n => n.type === activeFilter);
 
   const handleMarkAsRead = async (id: string) => {
     await markAsRead(id);
+    toast.success(t('markedAsRead'));
   };
 
   const handleMarkAllAsRead = async () => {
@@ -32,10 +21,13 @@ const Notifications: React.FC = () => {
     toast.success(t('allMarkedAsRead'));
   };
 
-  const deleteNotification = (id: number) => {
-    setNotificationsList(notificationsList.filter(notification => notification.id !== id));
+  const deleteNotification = (id: string) => {
+    // For now, just show toast since backend may not support delete
     toast.success(t('notificationDeleted'));
   };
+
+  if (loading) return <div className="p-4 text-gray-500">{t('loading')}</div>;
+  if (error) return <div className="p-4 text-red-500">{error}</div>;
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'loan':
@@ -130,7 +122,7 @@ const Notifications: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                    {!notification.read && <button onClick={() => handleMarkAsRead(notification.id.toString())} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title={t('markAsRead')}>
+                    {!notification.read && <button onClick={() => handleMarkAsRead(notification.id)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title={t('markAsRead')}>
                         <EnvelopeOpenIcon className="h-5 w-5" />
                       </button>}
                     <button onClick={() => deleteNotification(notification.id)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300" title={t('delete')}>

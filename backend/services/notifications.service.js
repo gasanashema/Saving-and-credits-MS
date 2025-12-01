@@ -3,34 +3,26 @@ const jwt = require("jsonwebtoken");
 const conn = require("../db/connection");
 
 const getMemberNotifications = async (req, res) => {
-  console.log('🔄 getMemberNotifications called');
   try {
     const { memberId } = req.params;
     const userId = parseInt(memberId);
-    console.log('📋 Using userId:', userId);
 
     // Get notifications for this member
     // For now, create some sample notifications based on their activity
-    console.log('🔍 Querying loans for member:', userId);
     const [loans] = await conn.query(
       "SELECT * FROM loan WHERE memberId = ? ORDER BY requestDate DESC LIMIT 5",
       [userId]
     );
-    console.log('🏦 Found loans:', loans.length);
 
-    console.log('🔍 Querying payments for member:', userId);
     const [payments] = await conn.query(
       "SELECT lp.*, l.amount as loan_amount FROM loanpayment lp INNER JOIN loan l ON lp.loanId = l.loanId WHERE l.memberId = ? ORDER BY lp.pay_date DESC LIMIT 5",
       [userId]
     );
-    console.log('💳 Found payments:', payments.length);
 
-    console.log('🔍 Querying penalties for member:', userId);
     const [penalties] = await conn.query(
       "SELECT * FROM penalties WHERE memberId = ? ORDER BY date DESC LIMIT 5",
       [userId]
     );
-    console.log('⚠️ Found penalties:', penalties.length);
 
     const notifications = [];
 
@@ -104,9 +96,6 @@ const getMemberNotifications = async (req, res) => {
     // Sort by date descending
     notifications.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    console.log('🔔 Generated notifications:', notifications.length);
-    console.log('📋 First notification:', notifications[0]);
-    console.log('✅ getMemberNotifications completed successfully');
     return res.json(notifications);
   } catch (error) {
     console.log(error);
@@ -119,7 +108,6 @@ const markNotificationAsRead = async (req, res) => {
     const { memberId, notificationId } = req.params;
     // In a real app, you'd store read status in database
     // For now, just return success
-    console.log('Marking notification as read:', { memberId, notificationId });
     return res.json({ message: 'Notification marked as read' });
   } catch (error) {
     return res.status(500).json({ error: error.message });
