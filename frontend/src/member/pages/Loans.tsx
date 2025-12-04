@@ -282,6 +282,8 @@ const Loans: React.FC = () => {
     }
   };
 
+
+
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLoan) return;
@@ -303,30 +305,37 @@ const Loans: React.FC = () => {
     }
 
     setIsProcessingPayment(true);
-    try {
-      // Simulate payment processing delay
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      await server.put('/loans/pay', {
-        loanId: selectedLoan.id,
-        amount,
-        phone: paymentPhone
-      });
-
-      setPaymentAmount('');
-      setPaymentPhone('');
-      setIsPaymentModalOpen(false);
-      toast.success('Payment successful');
-      // Refresh loans and payment details
-      refresh();
-      refreshPaymentDetails();
-    } catch (error) {
-      console.error('Payment error:', error);
-      toast.error('Failed to make payment');
-    } finally {
-      setIsProcessingPayment(false);
-    }
+    
+    // Fake MTN Mobile Money payment simulation
+    toast.success('Payment request sent to your phone. Please enter your MTN Mobile Money PIN.');
+    
+    // Simulate 3-second payment processing
+    setTimeout(async () => {
+      try {
+        // Fake payment success - update loan via existing API
+        await server.put('/loans/pay', {
+          loanId: selectedLoan.id,
+          amount,
+          phone: paymentPhone
+        });
+        
+        // Update UI
+        refresh();
+        refreshPaymentDetails();
+        setIsPaymentModalOpen(false);
+        setPaymentAmount('');
+        setPaymentPhone('');
+        toast.success('Payment completed successfully! 🎉');
+      } catch (error) {
+        console.error('Payment recording error:', error);
+        toast.error('Payment successful but failed to record. Please refresh the page.');
+      } finally {
+        setIsProcessingPayment(false);
+      }
+    }, 3000);
   };
+
+
 
   if (loading) return <div className="p-4 text-gray-500">{t('loading')}</div>;
   if (error) return <div className="p-4 text-red-500">{error}</div>;
@@ -596,8 +605,8 @@ const Loans: React.FC = () => {
 
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               {selectedLoan.status === 'active' && (
-                <button onClick={() => setIsPaymentModalOpen(true)} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center">
-                  <CreditCardIcon className="h-5 w-5 mr-1" />Make Payment
+                <button onClick={() => setIsPaymentModalOpen(true)} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 flex items-center">
+                  <CreditCardIcon className="h-5 w-5 mr-1" />Pay with MTN MoMo
                 </button>
               )}
 
@@ -616,72 +625,145 @@ const Loans: React.FC = () => {
         })()}
       </Modal>
 
-      {/* Payment Modal */}
-      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Make Payment">
-        <form onSubmit={handlePaymentSubmit} className="space-y-6">
-          {paymentDetails && (
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-600 dark:text-gray-300">Remaining Balance:</span>
-                <span className="font-semibold text-gray-800 dark:text-gray-200">{formatCurrency(paymentDetails.summary.remainingAmount)}</span>
+      {/* MTN Mobile Money Payment Modal */}
+      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="">
+        <div className="space-y-6">
+          {/* MTN Header */}
+          <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 p-6 rounded-xl text-center">
+            <div className="flex items-center justify-center mb-2">
+              <div className="bg-white rounded-full p-2 mr-3">
+                <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">MTN</span>
+                </div>
               </div>
+              <h2 className="text-xl font-bold text-gray-800">MTN Mobile Money</h2>
             </div>
-          )}
+            <p className="text-gray-700 text-sm">Fake Payment Demo</p>
+          </div>
 
-          <div>
-            <label htmlFor="paymentAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Amount *</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><span className="text-gray-500 dark:text-gray-400">$</span></div>
-              <input
-                type="number"
-                id="paymentAmount"
-                value={paymentAmount}
-                onChange={(e) => {
-                  setPaymentAmount(e.target.value);
-                  if (paymentErrors.amount) setPaymentErrors(prev => ({ ...prev, amount: '' }));
-                }}
-                min="1"
-                step="1"
-                max={paymentDetails?.summary.remainingAmount || undefined}
-                className="w-full pl-8 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="0"
-                disabled={isProcessingPayment}
-              />
+          <form onSubmit={handlePaymentSubmit} className="space-y-6">
+            {paymentDetails && (
+              <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl border border-blue-200 dark:border-blue-700">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-blue-700 dark:text-blue-300">Remaining Balance:</span>
+                  <span className="font-semibold text-blue-800 dark:text-blue-200">{formatCurrency(paymentDetails.summary.remainingAmount)}</span>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="paymentAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Amount (RWF) *</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <span className="text-gray-500 dark:text-gray-400">RWF</span>
+                </div>
+                <input
+                  type="number"
+                  id="paymentAmount"
+                  value={paymentAmount}
+                  onChange={(e) => {
+                    setPaymentAmount(e.target.value);
+                    if (paymentErrors.amount) setPaymentErrors(prev => ({ ...prev, amount: '' }));
+                  }}
+                  min="1"
+                  step="1"
+                  max={paymentDetails?.summary.remainingAmount || undefined}
+                  className="w-full pl-12 px-3 py-3 border-2 border-yellow-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 dark:bg-gray-700 dark:text-white dark:border-yellow-600"
+                  placeholder="Enter amount"
+                  disabled={isProcessingPayment}
+                />
+              </div>
+              {paymentErrors.amount && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{paymentErrors.amount}</p>}
             </div>
-            {paymentErrors.amount && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{paymentErrors.amount}</p>}
-          </div>
 
-          <div>
-            <label htmlFor="paymentPhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number *</label>
-            <input
-              type="tel"
-              id="paymentPhone"
-              value={paymentPhone}
-              onChange={(e) => {
-                setPaymentPhone(e.target.value);
-                if (paymentErrors.phone) setPaymentErrors(prev => ({ ...prev, phone: '' }));
-              }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="Enter phone number"
-              disabled={isProcessingPayment}
-            />
-            {paymentErrors.phone && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{paymentErrors.phone}</p>}
-          </div>
+            <div>
+              <label htmlFor="paymentPhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">MTN Mobile Money Number *</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <span className="text-gray-500 dark:text-gray-400">+250</span>
+                </div>
+                <input
+                  type="tel"
+                  id="paymentPhone"
+                  value={paymentPhone}
+                  onChange={(e) => {
+                    setPaymentPhone(e.target.value);
+                    if (paymentErrors.phone) setPaymentErrors(prev => ({ ...prev, phone: '' }));
+                  }}
+                  className="w-full pl-16 px-3 py-3 border-2 border-yellow-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 dark:bg-gray-700 dark:text-white dark:border-yellow-600"
+                  placeholder="78X XXX XXX"
+                  disabled={isProcessingPayment}
+                />
+              </div>
+              {paymentErrors.phone && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{paymentErrors.phone}</p>}
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter your MTN Mobile Money number</p>
+            </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button type="button" onClick={() => setIsPaymentModalOpen(false)} disabled={isProcessingPayment} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">Cancel</button>
-            <button type="submit" disabled={isProcessingPayment} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 flex items-center">
-              {isProcessingPayment ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Processing...
-                </>
-              ) : (
-                'Pay Now'
-              )}
-            </button>
-          </div>
-        </form>
+            {/* Payment Instructions */}
+            {!isProcessingPayment ? (
+              <div className="bg-yellow-50 dark:bg-yellow-900/30 p-4 rounded-xl border border-yellow-200 dark:border-yellow-700">
+                <h4 className="font-medium text-yellow-800 dark:text-yellow-300 mb-2">Payment Instructions:</h4>
+                <ol className="text-sm text-yellow-700 dark:text-yellow-400 space-y-1">
+                  <li>1. Enter your MTN Mobile Money number</li>
+                  <li>2. Enter the payment amount</li>
+                  <li>3. Click "Pay Now" to initiate payment</li>
+                  <li>4. You will receive a USSD prompt on your phone</li>
+                  <li>5. Enter your MTN Mobile Money PIN to complete</li>
+                </ol>
+              </div>
+            ) : (
+              <div className="bg-blue-50 dark:bg-blue-900/30 p-6 rounded-xl border border-blue-200 dark:border-blue-700 text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="animate-pulse bg-blue-500 rounded-full p-3">
+                    <CreditCardIcon className="h-8 w-8 text-white" />
+                  </div>
+                </div>
+                <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">Processing Payment...</h4>
+                <p className="text-sm text-blue-700 dark:text-blue-400 mb-3">
+                  Please check your phone for the USSD prompt and enter your MTN Mobile Money PIN.
+                </p>
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button 
+                type="button" 
+                onClick={() => {
+                  setIsPaymentModalOpen(false);
+                  setPaymentAmount('');
+                  setPaymentPhone('');
+                  setPaymentErrors({ amount: '', phone: '' });
+                }} 
+                disabled={isProcessingPayment} 
+                className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
+              >
+                {isProcessingPayment ? 'Processing...' : 'Cancel'}
+              </button>
+              <button 
+                type="submit" 
+                disabled={isProcessingPayment} 
+                className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 flex items-center"
+              >
+                {isProcessingPayment ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Waiting for PIN entry...
+                  </>
+                ) : (
+                  <>
+                    <CreditCardIcon className="h-5 w-5 mr-2" />
+                    Pay Now
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </Modal>
 
       {/* Apply for Loan Modal */}

@@ -8,6 +8,7 @@ interface User {
   role: "admin" | "member" | "sadmin";
   token: string;
   avatar?: string;
+  telephone?: string;
 }
 
 interface AuthContextType {

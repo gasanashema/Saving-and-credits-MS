@@ -41,8 +41,9 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // 🧹 Clear old user before new login
+      // 🧹 Clear old user and token before new login
       localStorage.removeItem("user");
+      localStorage.removeItem("token");
 
       const loginPayload = {
         username: identifier,
@@ -60,10 +61,10 @@ const Login: React.FC = () => {
       const { token, role, id, fullname, email } = response;
 
       console.log(response);
-      // 🧠 Store user info
+      // 🧠 Store user info and token separately
       const userData = { id, fullname, email, role, token };
-      // example after successful login
       localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("token", token); // Store token separately for axios interceptor
       window.dispatchEvent(new Event("storage")); 
 
       // ✅ Navigate based on role
