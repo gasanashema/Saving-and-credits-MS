@@ -70,7 +70,14 @@ const Loans: React.FC = () => {
       return uiLoan;
     });
 
-    setDisplayLoans(converted);
+    // Sort loans by date (newest first)
+    const sortedLoans = converted.sort((a, b) => {
+      const dateA = new Date(a.date || 0).getTime();
+      const dateB = new Date(b.date || 0).getTime();
+      return dateB - dateA;
+    });
+    
+    setDisplayLoans(sortedLoans);
   }, [backendLoans]);
 
   const [selectedLoan, setSelectedLoan] = useState<UiLoan | null>(null);
@@ -78,27 +85,92 @@ const Loans: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentErrors, setPaymentErrors] = useState({ amount: '' });
+  const [paymentPhone, setPaymentPhone] = useState('');
+  const [paymentErrors, setPaymentErrors] = useState({ amount: '', phone: '' });
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // payment details for selected loan
   const { paymentDetails, loading: paymentLoading, error: paymentError, refresh: refreshPaymentDetails } = useLoanPaymentDetails(selectedLoan?.id || null);
 
   const { user } = useAuth();
+
+  // Set default phone number when modal opens
+  useEffect(() => {
+    if (isPaymentModalOpen && user?.telephone) {
+      setPaymentPhone(user.telephone);
+    }
+  }, [isPaymentModalOpen, user]);
   
   // new loan form state
   const [newLoan, setNewLoan] = useState({
     amount: '',
     purpose: 'business',
-    term: '6',
-    interestRate: '5',
     notes: ''
   });
 
   const [errors, setErrors] = useState({
-    amount: '',
-    term: '',
-    interestRate: ''
+    amount: ''
   });
+
+  // Calculate loan terms based on Rwanda market rates
+  const calculateLoanTerms = (amount: number, purpose: string = 'personal') => {
+    if (!amount) return { rate: 0, duration: 0, amountToPay: 0 };
+    
+    // Special case: 0% rate for amounts under 50K
+    if (amount < 50000) {
+      return { rate: 0, duration: 4, amountToPay: amount };
+    }
+    
+    let annualRate = 18; // Default personal loan rate
+    let duration = 6;
+    
+    // Special case: 0% rate for small amounts (emergency/personal)
+    if (amount <= 100000 && (purpose === 'emergency' || purpose === 'personal')) {
+      annualRate = 0;
+      duration = 4;
+      return { rate: 0, duration: 4, amountToPay: amount };
+    }
+    
+    // Set rates based on loan purpose (Rwanda market rates)
+    if (purpose === 'housing') {
+      annualRate = 14; // Mortgage rates 11-16%
+    } else if (purpose === 'business') {
+      annualRate = 17; // SME loans 16-19%
+    } else if (purpose === 'personal' || purpose === 'emergency') {
+      annualRate = 18; // Personal loans 16-19%
+    } else if (purpose === 'education') {
+      annualRate = 15; // Lower rate for education
+    } else {
+      annualRate = 18; // Default
+    }
+    
+    // Set duration based on amount
+    if (amount <= 500000) {
+      duration = 6;
+    } else if (amount <= 1000000) {
+      duration = 12;
+    } else if (amount <= 2000000) {
+      duration = 18;
+    }
+    
+    // Calculate total amount using compound interest for the duration
+    const monthlyRate = annualRate / 100 / 12;
+    const amountToPay = amount * Math.pow(1 + monthlyRate, duration);
+    
+    return { rate: annualRate, duration, amountToPay };
+  };
+
+  const formatNumberWithCommas = (value: string) => {
+    const numericValue = value.replace(/[^0-9]/g, '');
+    return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
+  const parseFormattedNumber = (value: string) => {
+    return value.replace(/,/g, '');
+  };
+
+  const loanAmount = Number(parseFormattedNumber(newLoan.amount)) || 0;
+  const { rate, duration, amountToPay } = calculateLoanTerms(loanAmount, newLoan.purpose);
 
   const tabColor = (tab: Tab) => {
     switch (tab) {
@@ -137,16 +209,33 @@ const Loans: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setNewLoan(prev => ({ ...prev, [name]: value }));
+    
+    if (name === 'amount') {
+      const numericValue = Number(parseFormattedNumber(value));
+      if (numericValue <= 2000000) {
+        const formattedValue = formatNumberWithCommas(value);
+        setNewLoan(prev => ({ ...prev, [name]: formattedValue }));
+      } else {
+        toast.error('Maximum loan amount is 2,000,000');
+      }
+    } else {
+      setNewLoan(prev => ({ ...prev, [name]: value }));
+    }
+    
     if (errors[name as keyof typeof errors]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
   const validateForm = () => {
     let isValid = true;
     const newErrors = { ...errors };
-    if (!newLoan.amount || isNaN(Number(newLoan.amount)) || Number(newLoan.amount) <= 0) { newErrors.amount = t('invalidAmount'); isValid = false; }
-    if (!newLoan.term || isNaN(Number(newLoan.term)) || Number(newLoan.term) <= 0) { newErrors.term = t('invalidTerm'); isValid = false; }
-    if (!newLoan.interestRate || isNaN(Number(newLoan.interestRate)) || Number(newLoan.interestRate) < 0) { newErrors.interestRate = t('invalidInterestRate'); isValid = false; }
+    const amount = Number(parseFormattedNumber(newLoan.amount));
+    if (!newLoan.amount || isNaN(amount) || amount <= 0) {
+      newErrors.amount = 'Please enter a valid loan amount';
+      isValid = false;
+    } else if (amount > 2000000) {
+      newErrors.amount = 'Maximum loan amount is 2,000,000';
+      isValid = false;
+    }
     setErrors(newErrors);
     return isValid;
   };
@@ -156,20 +245,19 @@ const Loans: React.FC = () => {
     if (!validateForm()) return;
 
     try {
-      const amount = Number(newLoan.amount);
-      const rate = Number(newLoan.interestRate);
-      const duration = Number(newLoan.term);
-      const amountTopay = amount + (amount * rate / 100);
+      const amount = Number(parseFormattedNumber(newLoan.amount));
+      const { rate, duration, amountToPay } = calculateLoanTerms(amount);
 
       await server.post('/loans', {
         amount,
         duration,
-        re: `${newLoan.purpose}: ${newLoan.notes}`.trim(),
         rate,
-        amountTopay
+        amountTopay: amountToPay,
+        re: `${newLoan.purpose}: ${newLoan.notes}`.trim(),
+        status: 'pending'
       });
 
-      setNewLoan({ amount: '', purpose: 'business', term: '6', interestRate: '5', notes: '' });
+      setNewLoan({ amount: '', purpose: 'business', notes: '' });
       setIsAddModalOpen(false);
       toast.success(t('loanRequestSubmitted'));
       
@@ -200,22 +288,33 @@ const Loans: React.FC = () => {
 
     const amount = Number(paymentAmount);
     if (isNaN(amount) || amount <= 0) {
-      setPaymentErrors({ amount: t('invalidAmount') });
+      setPaymentErrors({ amount: t('invalidAmount'), phone: '' });
+      return;
+    }
+
+    if (!paymentPhone.trim()) {
+      setPaymentErrors({ amount: '', phone: 'Phone number is required' });
       return;
     }
 
     if (paymentDetails && amount > paymentDetails.summary.remainingAmount) {
-      setPaymentErrors({ amount: 'Amount exceeds remaining balance' });
+      setPaymentErrors({ amount: 'Amount exceeds remaining balance', phone: '' });
       return;
     }
 
+    setIsProcessingPayment(true);
     try {
+      // Simulate payment processing delay
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       await server.put('/loans/pay', {
         loanId: selectedLoan.id,
-        amount
+        amount,
+        phone: paymentPhone
       });
 
       setPaymentAmount('');
+      setPaymentPhone('');
       setIsPaymentModalOpen(false);
       toast.success('Payment successful');
       // Refresh loans and payment details
@@ -224,6 +323,8 @@ const Loans: React.FC = () => {
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Failed to make payment');
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
@@ -344,18 +445,49 @@ const Loans: React.FC = () => {
       </div>
 
       {/* View Modal */}
-      <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title={t('loanDetails')}>
-        {selectedLoan && (
-          <div className="space-y-6">
-            <div className="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-xl">
-              <div className="flex items-center">
-                <BanknotesIcon className="h-8 w-8 text-amber-600 dark:text-amber-400" />
-                <div className="ml-3">
-                  <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300">{formatCurrency(selectedLoan.amount)}</h3>
-                  <p className="text-sm text-amber-700 dark:text-amber-400">{t('loanAmount')}</p>
+      <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title={t('loanDetails')} size="xl">
+        {selectedLoan && (() => {
+          // Calculate loan terms for selected loan
+          const loanTerms = calculateLoanTerms(selectedLoan.amount, selectedLoan.notes?.split(':')[0] || 'personal');
+          
+          // Calculate remaining time (assuming loan starts from application date)
+          const startDate = new Date(selectedLoan.date);
+          const endDate = new Date(startDate);
+          endDate.setMonth(endDate.getMonth() + loanTerms.duration);
+          const now = new Date();
+          const remainingMonths = Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+          
+          return (
+            <div className="space-y-6">
+              <div className="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-xl">
+                <div className="flex items-center">
+                  <BanknotesIcon className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+                  <div className="ml-3">
+                    <h3 className="text-lg font-medium text-amber-800 dark:text-amber-300">{formatCurrency(selectedLoan.amount)}</h3>
+                    <p className="text-sm text-amber-700 dark:text-amber-400">Requested Amount</p>
+                  </div>
                 </div>
               </div>
-            </div>
+
+              {/* Loan Terms Summary */}
+              <div className="grid grid-cols-4 gap-4">
+                <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg text-center">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Interest Rate</p>
+                  <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{loanTerms.rate}%</p>
+                </div>
+                <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded-lg text-center">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Duration</p>
+                  <p className="text-xl font-bold text-green-600 dark:text-green-400">{loanTerms.duration} months</p>
+                </div>
+                <div className="bg-purple-50 dark:bg-purple-900/30 p-4 rounded-lg text-center">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Amount to Pay</p>
+                  <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{formatCurrency(loanTerms.amountToPay)}</p>
+                </div>
+                <div className="bg-orange-50 dark:bg-orange-900/30 p-4 rounded-lg text-center">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Remaining Time</p>
+                  <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{remainingMonths} months</p>
+                </div>
+              </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -390,15 +522,7 @@ const Loans: React.FC = () => {
                 <p className="text-base text-gray-800 dark:text-white capitalize">{t(selectedLoan.purpose)}</p>
               </div>}
 
-              {selectedLoan.term !== undefined && <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('term')}</h4>
-                <p className="text-base text-gray-800 dark:text-white">{selectedLoan.term} {t('months')}</p>
-              </div>}
 
-              {selectedLoan.interestRate !== undefined && <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('interestRate')}</h4>
-                <p className="text-base text-gray-800 dark:text-white">{selectedLoan.interestRate}%</p>
-              </div>}
 
               {selectedLoan.dueDate && <div>
                 <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('dueDate')}</h4>
@@ -487,8 +611,9 @@ const Loans: React.FC = () => {
                 </button>
               )}
             </div>
-          </div>
-        )}
+            </div>
+          );
+        })()}
       </Modal>
 
       {/* Payment Modal */}
@@ -513,21 +638,48 @@ const Loans: React.FC = () => {
                 value={paymentAmount}
                 onChange={(e) => {
                   setPaymentAmount(e.target.value);
-                  if (paymentErrors.amount) setPaymentErrors({ amount: '' });
+                  if (paymentErrors.amount) setPaymentErrors(prev => ({ ...prev, amount: '' }));
                 }}
                 min="1"
                 step="1"
                 max={paymentDetails?.summary.remainingAmount || undefined}
                 className="w-full pl-8 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="0"
+                disabled={isProcessingPayment}
               />
             </div>
             {paymentErrors.amount && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{paymentErrors.amount}</p>}
           </div>
 
+          <div>
+            <label htmlFor="paymentPhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number *</label>
+            <input
+              type="tel"
+              id="paymentPhone"
+              value={paymentPhone}
+              onChange={(e) => {
+                setPaymentPhone(e.target.value);
+                if (paymentErrors.phone) setPaymentErrors(prev => ({ ...prev, phone: '' }));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              placeholder="Enter phone number"
+              disabled={isProcessingPayment}
+            />
+            {paymentErrors.phone && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{paymentErrors.phone}</p>}
+          </div>
+
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Cancel</button>
-            <button type="submit" className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Submit Payment</button>
+            <button type="button" onClick={() => setIsPaymentModalOpen(false)} disabled={isProcessingPayment} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">Cancel</button>
+            <button type="submit" disabled={isProcessingPayment} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 flex items-center">
+              {isProcessingPayment ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Processing...
+                </>
+              ) : (
+                'Pay Now'
+              )}
+            </button>
           </div>
         </form>
       </Modal>
@@ -539,34 +691,37 @@ const Loans: React.FC = () => {
 
 
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('loanAmount')} *</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><span className="text-gray-500 dark:text-gray-400">$</span></div>
-                <input type="number" id="amount" name="amount" value={newLoan.amount} onChange={handleInputChange} min="1" step="1" className="w-full pl-8 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" placeholder="0" />
-              </div>
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('loanAmount')} * (Up to 2,000,000)</label>
+              <input type="text" id="amount" name="amount" value={newLoan.amount} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" placeholder="Enter amount" />
               {errors.amount && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.amount}</p>}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="purpose" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('loanPurpose')} *</label>
-                <select id="purpose" name="purpose" value={newLoan.purpose} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
-                  {loanPurposes.map(p => <option key={p} value={p}>{t(p)}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="term" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('term')} ({t('months')}) *</label>
-                <input type="number" id="term" name="term" value={newLoan.term} onChange={handleInputChange} min="1" max="36" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" />
-                {errors.term && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.term}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="interestRate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('interestRate')} (%) *</label>
-                <input type="number" id="interestRate" name="interestRate" value={newLoan.interestRate} onChange={handleInputChange} min="0" max="30" step="0.1" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" />
-                {errors.interestRate && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.interestRate}</p>}
-              </div>
+            <div>
+              <label htmlFor="purpose" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('loanPurpose')} *</label>
+              <select id="purpose" name="purpose" value={newLoan.purpose} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                {loanPurposes.map(p => <option key={p} value={p}>{t(p)}</option>)}
+              </select>
             </div>
+
+            {loanAmount > 0 && (
+              <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 p-6 rounded-xl border border-green-200 dark:border-green-700">
+                <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Loan Terms Preview</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Interest Rate</p>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">{rate}%</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Duration</p>
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{duration} months</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Amount to Pay</p>
+                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{formatCurrency(amountToPay)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('notes')}</label>
