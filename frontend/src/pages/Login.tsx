@@ -77,6 +77,7 @@ const Login: React.FC = () => {
       let page = "/";
       switch (storedRole) {
         case "admin":
+        case "supperadmin":
           page = "/admin";
           break;
         case "member":

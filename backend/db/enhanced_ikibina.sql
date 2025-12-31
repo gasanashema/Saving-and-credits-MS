@@ -12,6 +12,7 @@ DROP TABLE IF EXISTS `saving_edit_history`;
 DROP TABLE IF EXISTS `savings`;
 DROP TABLE IF EXISTS `savingtypes`;
 DROP TABLE IF EXISTS `ptypes`;
+DROP TABLE IF EXISTS `notifications`;
 DROP TABLE IF EXISTS `members`;
 DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `settings`;
@@ -162,6 +163,21 @@ CREATE TABLE `settings` (
 
 INSERT INTO `settings` VALUES
 (1,'general','{"savingDay":"2"}');
+
+-- =============================
+-- NOTIFICATIONS
+-- =============================
+CREATE TABLE `notifications` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `message` text NOT NULL,
+  `recipient_id` int(11) DEFAULT NULL,
+  `sender_id` int(11) NOT NULL,
+  `sent_date` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  CONSTRAINT `notifications_sender_fk` FOREIGN KEY (`sender_id`) REFERENCES `users` (`user_id`),
+  CONSTRAINT `notifications_recipient_fk` FOREIGN KEY (`recipient_id`) REFERENCES `members` (`member_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================
 -- LOANS (Distributed throughout the year)

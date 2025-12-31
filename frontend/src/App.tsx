@@ -49,7 +49,7 @@ export function App() {
               <Route path="/logout" element={<Logout />} />
 
               {/* 🔒 Admin Routes */}
-              <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+              <Route element={<ProtectedRoute allowedRoles={["admin", "supperadmin"]} />}>
                 <Route path="/admin" element={<Layout />}>
                   <Route index element={<AdminDashboard />} />
                   <Route path="members" element={<AdminMembers />} />

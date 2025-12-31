@@ -3,7 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 interface ProtectedRouteProps {
-  allowedRoles: ("admin" | "member" | "sadmin")[];
+  allowedRoles: ("admin" | "member" | "sadmin" | "supperadmin")[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
