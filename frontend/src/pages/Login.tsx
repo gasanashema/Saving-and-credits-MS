@@ -71,6 +71,7 @@ const Login: React.FC = () => {
       let page = "/";
       switch (role.toLowerCase()) {
         case "admin":
+        case "supperadmin":
           page = "/admin";
           break;
         case "member":

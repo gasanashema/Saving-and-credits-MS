@@ -222,6 +222,49 @@ INSERT INTO `loanpayment` VALUES
 (1,0,'2025-07-01 12:00:00',5000,1),
 (2,1,'2025-08-01 12:00:00',10000,1);
 
+-- =============================
+-- NOTIFICATION GROUPS
+-- =============================
+CREATE TABLE `notification_groups` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  CONSTRAINT `notification_groups_created_by_fk` FOREIGN KEY (`created_by`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =============================
+-- NOTIFICATION GROUP MEMBERS
+-- =============================
+CREATE TABLE `notification_group_members` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `group_id` int(11) NOT NULL,
+  `recipient_type` enum('admin','member') NOT NULL,
+  `recipient_id` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_group_recipient` (`group_id`, `recipient_type`, `recipient_id`),
+  CONSTRAINT `notification_group_members_group_fk` FOREIGN KEY (`group_id`) REFERENCES `notification_groups` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =============================
+-- NOTIFICATIONS
+-- =============================
+CREATE TABLE `notifications` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `sender_admin_id` int(11) NOT NULL,
+  `receiver_type` enum('admin','member') NOT NULL,
+  `receiver_id` int(11) NOT NULL,
+  `group_id` int(11) DEFAULT NULL,
+  `title` varchar(150) NOT NULL,
+  `message` text NOT NULL,
+  `is_read` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  CONSTRAINT `notifications_sender_fk` FOREIGN KEY (`sender_admin_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE,
+  CONSTRAINT `notifications_group_fk` FOREIGN KEY (`group_id`) REFERENCES `notification_groups` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Auto increment reset
 ALTER TABLE `users` AUTO_INCREMENT = 0;
 ALTER TABLE `members` AUTO_INCREMENT = 0;
@@ -233,5 +276,8 @@ ALTER TABLE `saving_edit_history` AUTO_INCREMENT = 0;
 ALTER TABLE `penalties` AUTO_INCREMENT = 0;
 ALTER TABLE `loan` AUTO_INCREMENT = 0;
 ALTER TABLE `loanpayment` AUTO_INCREMENT = 0;
+ALTER TABLE `notification_groups` AUTO_INCREMENT = 0;
+ALTER TABLE `notification_group_members` AUTO_INCREMENT = 0;
+ALTER TABLE `notifications` AUTO_INCREMENT = 0;
 
 COMMIT;

@@ -88,9 +88,9 @@ const Navbar: React.FC<NavbarProps> = ({
                   </div>
                   <div className="max-h-96 overflow-y-auto">
                     {notifications.slice(0, 5).map((notification) => (
-                      <div key={notification.id} className={`p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 ${!notification.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                      <div key={notification.id} className={`p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 ${!notification.is_read ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
                         <div className="flex items-start">
-                          <div className={`flex-shrink-0 rounded-full p-2 ${notification.type === 'loan' ? 'bg-amber-500' : notification.type === 'repayment' ? 'bg-purple-500' : notification.type === 'penalty' ? 'bg-red-500' : 'bg-blue-500'}`}>
+                          <div className="flex-shrink-0 rounded-full p-2 bg-blue-500">
                             <BellIcon className="h-5 w-5 text-white" />
                           </div>
                           <div className="ml-3 flex-1">
@@ -99,9 +99,9 @@ const Navbar: React.FC<NavbarProps> = ({
                               {notification.message}
                             </p>
                             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                              {new Date(notification.date).toLocaleDateString()}
+                              {new Date(notification.created_at).toLocaleDateString()}
                             </p>
-                            {!notification.read && (
+                            {!notification.is_read && (
                               <button
                                 onClick={() => markAsRead(notification.id)}
                                 className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mt-1"

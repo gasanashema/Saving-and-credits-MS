@@ -1,9 +1,7 @@
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
 import StatsCard from '../../components/ui/StatsCard';
-import ChartCard from '../../components/ui/ChartCard';
 import { UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ClockIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { useState, useEffect } from 'react';
 import server from '../../utils/server';
 import { toast } from 'sonner';
@@ -38,58 +36,8 @@ const processAdminData = (rawData: any) => {
   const activeLoans = loans.filter((l: any) => l.status === 'active' || l.status === 'approved').length;
   const pendingRepayments = loans.filter((l: any) => l.status === 'active' || l.status === 'approved').length; // Assuming active loans need repayment
 
-  // Monthly savings trend
-  const currentYear = new Date().getFullYear();
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const savingsData = months.map((month, i) => {
-    const monthStart = new Date(currentYear, i, 1);
-    const monthEnd = new Date(currentYear, i + 1, 0);
-    const savingsInMonth = savings.filter((s: any) => {
-      const saveDate = new Date(s.date);
-      return saveDate >= monthStart && saveDate <= monthEnd;
-    });
-    const totalAmount = savingsInMonth.reduce((sum: number, s: any) => sum + (s.amount || 0), 0);
 
-    return {
-      month,
-      amount: totalAmount
-    };
-  });
 
-  // Loan distribution
-  const loanStatusCounts = {
-    active: loans.filter((l: any) => l.status === 'active' || l.status === 'approved').length,
-    paid: loans.filter((l: any) => l.status === 'paid').length,
-    pending: loans.filter((l: any) => l.status === 'pending').length,
-    rejected: loans.filter((l: any) => l.status === 'rejected' || l.status === 'cancelled').length
-  };
-
-  const loanDistribution = [
-    { name: 'Active', value: loanStatusCounts.active },
-    { name: 'Paid', value: loanStatusCounts.paid },
-    { name: 'Pending', value: loanStatusCounts.pending },
-    { name: 'Rejected', value: loanStatusCounts.rejected }
-  ].filter(item => item.value > 0);
-
-  // Repayment performance (simplified)
-  const repaymentPerformance = months.map((month, i) => {
-    const monthStart = new Date(currentYear, i, 1);
-    const monthEnd = new Date(currentYear, i + 1, 0);
-    const paymentsInMonth = payments.filter((p: any) => {
-      const payDate = new Date(p.pay_date);
-      return payDate >= monthStart && payDate <= monthEnd;
-    });
-
-    // For simplicity, assume all payments are on time
-    const onTime = paymentsInMonth.length;
-    const late = 0; // Could calculate based on due dates
-
-    return {
-      month,
-      onTime: onTime > 0 ? 100 : 0, // Percentage
-      late: late
-    };
-  });
 
   // Recent activity (combine savings, loans, payments)
   const recentActivity = [
@@ -114,7 +62,7 @@ const processAdminData = (rawData: any) => {
       amount: p.amount,
       date: p.pay_date
     }))
-  ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
 
   return {
     stats: {
@@ -123,9 +71,6 @@ const processAdminData = (rawData: any) => {
       activeLoans,
       pendingRepayments
     },
-    savingsData,
-    loanDistribution,
-    repaymentPerformance,
     recentActivity
   };
 };
@@ -135,12 +80,8 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>({
     stats: { totalMembers: 0, totalSavings: 0, activeLoans: 0, pendingRepayments: 0 },
-    savingsData: [],
-    loanDistribution: [],
-    repaymentPerformance: [],
     recentActivity: []
   });
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   useEffect(() => {
     const loadData = async () => {
@@ -212,78 +153,6 @@ const Dashboard: React.FC = () => {
         </motion.div>
         <motion.div variants={item}>
           <StatsCard title={t('pendingRepayments')} value={data.stats.pendingRepayments.toString()} icon={<ArrowDownCircleIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-purple-500" />
-        </motion.div>
-      </div>
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div variants={item}>
-          <ChartCard title={t('monthlySavingsTrend')}>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.savingsData} margin={{
-                top: 20,
-                right: 30,
-                left: 20,
-                bottom: 5
-              }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="month" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip contentStyle={{
-                  backgroundColor: '#1F2937',
-                  borderColor: '#374151',
-                  color: '#F9FAFB'
-                }} formatter={value => [formatCurrency(value as number), 'Amount']} />
-                  <Bar dataKey="amount" fill="#10B981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </ChartCard>
-        </motion.div>
-        <motion.div variants={item}>
-          <ChartCard title={t('loanDistribution')}>
-            <div className="h-80 flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={data.loanDistribution} cx="50%" cy="50%" labelLine={false} outerRadius={100} fill="#8884d8" dataKey="value" label={({
-                  name,
-                  percent
-                }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {data.loanDistribution.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={value => [`${value}`, 'Count']} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </ChartCard>
-        </motion.div>
-        <motion.div variants={item} className="lg:col-span-2">
-          <ChartCard title={t('repaymentPerformance')}>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data.repaymentPerformance} margin={{
-                top: 20,
-                right: 30,
-                left: 20,
-                bottom: 5
-              }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="month" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip contentStyle={{
-                  backgroundColor: '#1F2937',
-                  borderColor: '#374151',
-                  color: '#F9FAFB'
-                }} formatter={value => [`${value}%`, '']} />
-                  <Legend />
-                  <Line type="monotone" dataKey="onTime" stroke="#10B981" strokeWidth={2} activeDot={{
-                  r: 8
-                }} />
-                  <Line type="monotone" dataKey="late" stroke="#EF4444" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </ChartCard>
         </motion.div>
       </div>
       {/* Recent Activity */}
