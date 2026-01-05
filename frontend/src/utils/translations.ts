@@ -136,7 +136,12 @@ export const translations = {
     notificationsDescription: 'View system notifications and alerts.',
     settingsDescription: 'Manage your account and system preferences.',
     profileUpdated: 'Profile updated successfully',
-    passwordChanged: 'Password changed successfully'
+    passwordChanged: 'Password changed successfully',
+    chat: 'Help Center',
+    chatDescription: 'Get support from admins',
+    needHelp: 'Need help?',
+    contactSupport: 'Contact our support team',
+    supportCenter: 'Open Help Center'
   },
   rw: {
     // Navigation
@@ -275,6 +280,11 @@ export const translations = {
     notificationsDescription: "Kureba imenyesha ya sisitemu n'ibiburira.",
     settingsDescription: "Gucunga konti yawe n'amahitamo ya sisitemu.",
     profileUpdated: 'Umwirondoro wavuguruwe neza',
-    passwordChanged: 'Ijambo ryibanga ryahinduwe neza'
+    passwordChanged: 'Ijambo ryibanga ryahinduwe neza',
+    chat: 'Ikigo cy\'Ubufasha',
+    chatDescription: 'Vugana n\'abashinzwe',
+    needHelp: 'Ukeneye ubufasha?',
+    contactSupport: 'Vugana n\'itsinda ry\'ubufasha',
+    supportCenter: 'Fungura Ikigo cy\'Ubufasha'
   }
 };

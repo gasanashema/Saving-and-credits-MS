@@ -20,7 +20,8 @@ const Login: React.FC = () => {
   // ✅ Redirect if user already logged in
   useEffect(() => {
     if (isAuthenticated && user) {
-      switch (user?.role.toLowerCase()) {
+      const roleKey = user?.role?.toLowerCase();
+      switch (roleKey) {
         case "admin":
           navigate("/admin", { replace: true });
           break;
@@ -28,6 +29,7 @@ const Login: React.FC = () => {
           navigate("/member", { replace: true });
           break;
         case "super-admin":
+        case "sadmin":
           navigate("/super-admin", { replace: true });
           break;
         default:
@@ -61,22 +63,27 @@ const Login: React.FC = () => {
       const { token, role, id, fullname, email } = response;
 
       console.log(response);
-      // 🧠 Store user info and token separately
-      const userData = { id, fullname, email, role, token };
+      // Normalize the role for internal use (backend returns route-friendly 'super-admin' for super users)
+      const responseRole = String(role || "member").toLowerCase();
+      const storedRole = responseRole === "super-admin" ? "sadmin" : responseRole;
+
+      // 🧠 Store user info and token separately (store canonical short role)
+      const userData = { id, fullname, email, role: storedRole, token };
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("token", token); // Store token separately for axios interceptor
       window.dispatchEvent(new Event("storage")); 
 
-      // ✅ Navigate based on role
+      // ✅ Navigate based on canonical role
       let page = "/";
-      switch (role.toLowerCase()) {
+      switch (storedRole) {
         case "admin":
+        case "supperadmin":
           page = "/admin";
           break;
         case "member":
           page = "/member";
           break;
-        case "super-admin":
+        case "sadmin":
           page = "/super-admin";
           break;
         default:

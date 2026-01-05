@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
-import useMemberNotifications from '../../../hooks/useMemberNotifications';
 import { Bars3Icon, BellIcon, SunIcon, MoonIcon, ChevronDownIcon, UserCircleIcon, ArrowRightOnRectangleIcon, LanguageIcon } from '@heroicons/react/24/outline';
 interface NavbarProps {
   toggleSidebar: () => void;
@@ -26,7 +25,6 @@ const Navbar: React.FC<NavbarProps> = ({
     theme,
     toggleTheme
   } = useTheme();
-  const { notifications, unreadCount, markAsRead } = useMemberNotifications();
   const navigate = useNavigate();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -62,11 +60,9 @@ const Navbar: React.FC<NavbarProps> = ({
           <div className="relative">
             <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
               <BellIcon className="h-6 w-6" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                3
+              </span>
             </button>
             <AnimatePresence>
               {notificationsOpen && <motion.div initial={{
@@ -87,46 +83,57 @@ const Navbar: React.FC<NavbarProps> = ({
                     </h3>
                   </div>
                   <div className="max-h-96 overflow-y-auto">
-                    {notifications.slice(0, 5).map((notification) => (
-                      <div key={notification.id} className={`p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 ${!notification.is_read ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-                        <div className="flex items-start">
-                          <div className="flex-shrink-0 rounded-full p-2 bg-blue-500">
-                            <BellIcon className="h-5 w-5 text-white" />
-                          </div>
-                          <div className="ml-3 flex-1">
-                            <p className="text-sm font-medium">{notification.title}</p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {notification.message}
-                            </p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                              {new Date(notification.created_at).toLocaleDateString()}
-                            </p>
-                            {!notification.is_read && (
-                              <button
-                                onClick={() => markAsRead(notification.id)}
-                                className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mt-1"
-                              >
-                                Mark as read
-                              </button>
-                            )}
-                          </div>
+                    <div className="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0 bg-blue-500 rounded-full p-2">
+                          <BellIcon className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm font-medium">Loan Approved</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Your loan request for $3,000 has been approved.
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            2 hours ago
+                          </p>
                         </div>
                       </div>
-                    ))}
-                    {notifications.length === 0 && (
-                      <div className="p-3 text-center text-gray-500 dark:text-gray-400">
-                        No notifications
+                    </div>
+                    <div className="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0 bg-red-500 rounded-full p-2">
+                          <BellIcon className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm font-medium">Repayment Due</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Your loan repayment of $500 is due in 3 days.
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            1 day ago
+                          </p>
+                        </div>
                       </div>
-                    )}
+                    </div>
+                    <div className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0 bg-green-500 rounded-full p-2">
+                          <BellIcon className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm font-medium">New Member</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Sarah Brown has joined the association.
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            3 days ago
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div className="p-3 border-t border-gray-200 dark:border-gray-700 text-center">
-                    <button
-                      onClick={() => {
-                        setNotificationsOpen(false);
-                        navigate('/member/notifications');
-                      }}
-                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
-                    >
+                    <button className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium">
                       {t('viewAll')}
                     </button>
                   </div>
@@ -166,10 +173,13 @@ const Navbar: React.FC<NavbarProps> = ({
                       <UserCircleIcon className="h-5 w-5 mr-2" />
                       {t('profile')}
                     </button>
-                    <Link to="/logout" className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <button onClick={() => {
+                  setUserMenuOpen(false);
+                  navigate('/logout');
+                }} className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                       <ArrowRightOnRectangleIcon className="h-5 w-5 mr-2" />
                       {t('logout')}
-                    </Link>
+                    </button>
                   </div>
                 </motion.div>}
             </AnimatePresence>

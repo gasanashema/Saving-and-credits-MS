@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { Bars3Icon, BellIcon, SunIcon, MoonIcon, ChevronDownIcon, UserCircleIcon, ArrowRightOnRectangleIcon, LanguageIcon } from '@heroicons/react/24/outline';
+import server from '../../../utils/server';
 interface NavbarProps {
   toggleSidebar: () => void;
   sidebarOpen: boolean;
@@ -28,6 +29,52 @@ const Navbar: React.FC<NavbarProps> = ({
   const navigate = useNavigate();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Fetch notifications
+  useEffect(() => {
+    if (user?.id) {
+      fetchNotifications();
+      fetchUnreadCount();
+    }
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await server.get(`/notifications/admin/${user?.id}`);
+      setNotifications(res.data.slice(0, 5)); // Show latest 5
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await server.get(`/notifications/unread/admin/${user?.id}`);
+      setUnreadCount(res.data.unread);
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem('user');
     navigate('/login');
@@ -57,12 +104,14 @@ const Navbar: React.FC<NavbarProps> = ({
             {theme === 'dark' ? <SunIcon className="h-6 w-6" /> : <MoonIcon className="h-6 w-6" />}
           </button>
           {/* Notifications */}
-          <div className="relative">
+          <div className="relative" ref={notificationsRef}>
             <button onClick={() => setNotificationsOpen(!notificationsOpen)} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
               <BellIcon className="h-6 w-6" />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                3
-              </span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </button>
             <AnimatePresence>
               {notificationsOpen && <motion.div initial={{
@@ -83,57 +132,50 @@ const Navbar: React.FC<NavbarProps> = ({
                     </h3>
                   </div>
                   <div className="max-h-96 overflow-y-auto">
-                    <div className="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <div className="flex items-start">
-                        <div className="flex-shrink-0 bg-blue-500 rounded-full p-2">
-                          <BellIcon className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium">Loan Approved</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Your loan request for $3,000 has been approved.
-                          </p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            2 hours ago
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <div className="flex items-start">
-                        <div className="flex-shrink-0 bg-red-500 rounded-full p-2">
-                          <BellIcon className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium">Repayment Due</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Your loan repayment of $500 is due in 3 days.
-                          </p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            1 day ago
-                          </p>
+                    {notifications.map((notification) => (
+                      <div key={notification.id} className={`p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 ${!notification.is_read ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                        <div className="flex items-start">
+                          <div className="flex-shrink-0 bg-blue-500 rounded-full p-2">
+                            <BellIcon className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="ml-3 flex-1">
+                            <p className="text-sm font-medium">{notification.title}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                              {new Date(notification.created_at).toLocaleDateString()}
+                            </p>
+                            {!notification.is_read && (
+                              <button
+                                onClick={async () => {
+                                  await server.put(`/notifications/read/${notification.id}`);
+                                  setNotifications(notifications.map(n => n.id === notification.id ? { ...n, is_read: true } : n));
+                                  setUnreadCount(prev => Math.max(0, prev - 1));
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mt-1"
+                              >
+                                Mark as read
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <div className="flex items-start">
-                        <div className="flex-shrink-0 bg-green-500 rounded-full p-2">
-                          <BellIcon className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium">New Member</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Sarah Brown has joined the association.
-                          </p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            3 days ago
-                          </p>
-                        </div>
+                    ))}
+                    {notifications.length === 0 && (
+                      <div className="p-3 text-center text-gray-500 dark:text-gray-400">
+                        No notifications
                       </div>
-                    </div>
+                    )}
                   </div>
                   <div className="p-3 border-t border-gray-200 dark:border-gray-700 text-center">
-                    <button className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium">
+                    <button
+                      onClick={() => {
+                        setNotificationsOpen(false);
+                        navigate('/admin/notifications');
+                      }}
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
+                    >
                       {t('viewAll')}
                     </button>
                   </div>
@@ -141,7 +183,7 @@ const Navbar: React.FC<NavbarProps> = ({
             </AnimatePresence>
           </div>
           {/* User Menu */}
-          <div className="relative">
+          <div className="relative" ref={userMenuRef}>
             <button onClick={() => setUserMenuOpen(!userMenuOpen)} className="flex items-center space-x-2 rounded-full focus:outline-none">
               <img src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || user?.fullname || 'User')}&background=0D8ABC&color=fff`} alt={user?.name || user?.fullname || 'User'} className="h-9 w-9 rounded-full border-2 border-gray-200 dark:border-gray-700" />
               <ChevronDownIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />

@@ -2,9 +2,8 @@ import React from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import useUnreadNotifications from '../../../hooks/useUnreadNotifications';
 import useUnreadChats from '../../../hooks/useUnreadChats';
+import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 interface SidebarProps {
   toggleSidebar: () => void;
 }
@@ -18,39 +17,41 @@ const Sidebar: React.FC<SidebarProps> = ({
   const {
     theme
   } = useTheme();
-  const { unread } = useUnreadNotifications();
   const { unread: unreadChats } = useUnreadChats();
-
   const navItems = [{
-    path: '',
+    path: '/admin',
     name: t('dashboard'),
     icon: <HomeIcon className="w-6 h-6" />
   }, {
-    path: 'savings',
+    path: '/admin/members',
+    name: t('members'),
+    icon: <UsersIcon className="w-6 h-6" />
+  }, {
+    path: '/admin/savings',
     name: t('savings'),
     icon: <CurrencyDollarIcon className="w-6 h-6" />
   }, {
-    path: 'loans',
+    path: '/admin/loans',
     name: t('loans'),
     icon: <BanknotesIcon className="w-6 h-6" />
   }, {
-    path: 'repayments',
+    path: '/admin/repayments',
     name: t('repayments'),
     icon: <ArrowDownCircleIcon className="w-6 h-6" />
   }, {
-    path: 'penalties',
+    path: '/admin/penalties',
     name: t('penalties'),
     icon: <ExclamationTriangleIcon className="w-6 h-6" />
   }, {
-    path: 'reports',
+    path: '/admin/reports',
     name: t('reports'),
     icon: <ChartBarIcon className="w-6 h-6" />
   }, {
-    path: 'notifications',
+    path: '/admin/notifications',
     name: t('notifications'),
     icon: <BellIcon className="w-6 h-6" />
   }, {
-    path: 'settings',
+    path: '/admin/settings',
     name: t('settings'),
     icon: <Cog6ToothIcon className="w-6 h-6" />
   }];
@@ -74,11 +75,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           }) => `flex items-center px-4 py-3 rounded-lg transition-colors ${isActive ? 'bg-emerald-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                 {item.icon}
                 <span className="ml-3">{item.name}</span>
-                {item.path === 'notifications' && unread > 0 && <span className="ml-auto bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                    {unread}
-                  </span>}
-                {item.path === 'chat' && unreadChats > 0 && <span className="ml-auto bg-indigo-600 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                    {unreadChats}
+                {item.path === '/notifications' && <span className="ml-auto bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                    3
                   </span>}
               </NavLink>
             </li>)}
@@ -92,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
             {t('contactSupport')}
           </p>
-          <button onClick={() => navigate('chat')} className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+          <button onClick={() => navigate('/sadmin/chat')} className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
             {t('supportCenter')}
             {unreadChats > 0 && <span className="bg-indigo-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{unreadChats}</span>}
           </button>

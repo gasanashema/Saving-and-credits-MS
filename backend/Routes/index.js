@@ -9,6 +9,7 @@ const settingsRouter = require("./settings.route");
 const PayRouter = require("./pay.route");
 const paymentRouter = require("./payment");
 const notificationsRouter = require("./notifications.route");
+const chatRouter = require("./chat.route");
 
 const appRouter = express.Router();
 
@@ -22,6 +23,6 @@ appRouter.use("/payment", paymentRouter);
 appRouter.use("/ussd", ussdRouter);
 appRouter.use("/settings", settingsRouter);
 appRouter.use("/notifications", notificationsRouter);
-
+appRouter.use("/chat", chatRouter);
 
 module.exports = appRouter;

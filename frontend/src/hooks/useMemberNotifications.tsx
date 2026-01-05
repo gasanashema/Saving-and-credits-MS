@@ -3,12 +3,11 @@ import server from "../utils/server";
 import { useAuth } from "../context/AuthContext";
 
 export interface Notification {
-  id: string;
+  id: number;
   title: string;
   message: string;
-  date: string;
-  read: boolean;
-  type: string;
+  created_at: string;
+  is_read: boolean;
 }
 
 export interface UseMemberNotificationsResult {
@@ -17,12 +16,12 @@ export interface UseMemberNotificationsResult {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  markAsRead: (id: string) => Promise<void>;
+  markAsRead: (id: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
 }
 
 /**
- * Fetch notifications for the current member from `notifications/`.
+ * Fetch notifications for the current member from `/notifications/member/:memberId`.
  */
 export default function useMemberNotifications(): UseMemberNotificationsResult {
   const { user } = useAuth();
@@ -40,19 +39,10 @@ export default function useMemberNotifications(): UseMemberNotificationsResult {
     setError(null);
 
     try {
-      const resp = await server.get(`/notifications/${user.id}`);
-      const rawNotifications: any[] = Array.isArray(resp.data) ? resp.data : [];
+      const resp = await server.get(`/notifications/member/${user.id}`);
+      const rawNotifications: Notification[] = Array.isArray(resp.data) ? resp.data : [];
 
-      const normalized: Notification[] = rawNotifications.map((n: any) => ({
-        id: String(n.id ?? ""),
-        title: n.title ?? "",
-        message: n.message ?? "",
-        date: n.date ?? "",
-        read: Boolean(n.read ?? false),
-        type: n.type ?? "system",
-      }));
-
-      setNotifications(normalized);
+      setNotifications(rawNotifications);
     } catch (err) {
       console.error("useMemberNotifications error:", err);
       setError(err instanceof Error ? err.message : String(err));
@@ -62,13 +52,15 @@ export default function useMemberNotifications(): UseMemberNotificationsResult {
     }
   }, [user]);
 
-  const markAsRead = useCallback(async (id: string) => {
+  const markAsRead = useCallback(async (id: number) => {
     if (!user?.id) return;
     try {
-      await server.put(`/notifications/${user.id}/${id}/read`);
+      await server.put(`/notifications/read/${id}`);
       setNotifications(prev =>
-        prev.map(n => n.id === id ? { ...n, read: true } : n)
+        prev.map(n => n.id === id ? { ...n, is_read: true } : n)
       );
+      // notify other parts of the app (including the unread hook) that notifications changed
+      try { window.dispatchEvent(new CustomEvent('notifications:changed')); } catch (e) { /* ignore */ }
     } catch (err) {
       console.error("Mark as read error:", err);
     }
@@ -76,8 +68,9 @@ export default function useMemberNotifications(): UseMemberNotificationsResult {
 
   const markAllAsRead = useCallback(async () => {
     try {
-      // Mark all locally for now
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      // Mark all locally for now, but ideally call a bulk update endpoint
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      try { window.dispatchEvent(new CustomEvent('notifications:changed')); } catch (e) { /* ignore */ }
     } catch (err) {
       console.error("Mark all as read error:", err);
     }
@@ -89,7 +82,7 @@ export default function useMemberNotifications(): UseMemberNotificationsResult {
     }
   }, [fetchNotifications, user]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return {
     notifications,
