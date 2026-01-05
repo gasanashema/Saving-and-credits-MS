@@ -228,15 +228,21 @@ const ChatPanel: React.FC = () => {
       {/* Conversation Modal */}
       <Modal isOpen={conversationOpen} onClose={()=> setConversationOpen(false)} title={conversationTarget?.name || 'Conversation'}>
         <div className="space-y-4">
-          <div className="max-h-64 overflow-auto space-y-2">
-            {conversationMessages.map(m => (
-              <div key={m.id} className={`p-2 rounded ${m.sender_type === 'admin' ? 'bg-gray-100 self-start' : 'bg-emerald-100 self-end'}`}>
-                <div className="text-sm">{m.message}</div>
-                <div className="text-xs text-gray-400">{new Date(m.created_at).toLocaleString()}</div>
-              </div>
-            ))}
+          <div className="max-h-64 overflow-auto space-y-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+            {conversationMessages.map(m => {
+              const isMine = m.sender_type === 'admin' && Number(m.sender_id) === Number(user?.id);
+              return (
+                <div key={m.id} className={`flex items-end gap-3 ${isMine ? 'justify-end' : 'justify-start'}`}>
+                  {!isMine && <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">{initials(conversationTarget?.name || 'MB')}</div>}
+                  <div className={`p-3 max-w-[80%] ${isMine ? 'bg-emerald-600 text-white rounded-lg shadow-md rounded-br-none' : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg shadow-sm rounded-bl-none'}`}>
+                    <div className="text-sm whitespace-pre-wrap">{m.message}</div>
+                    <div className={`text-xs mt-1 ${isMine ? 'text-emerald-100' : 'text-gray-500 dark:text-gray-400'}`}>{new Date(m.created_at).toLocaleString()}</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <textarea value={conversationText} onChange={e=> setConversationText(e.target.value)} className="w-full border rounded p-2" rows={3} />
+          <textarea value={conversationText} onChange={e=> setConversationText(e.target.value)} className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-700" rows={3} />
           <div className="flex justify-end"><button onClick={sendConversationMessage} className="px-4 py-2 bg-blue-600 text-white rounded">Send</button></div>
         </div>
       </Modal>    </div>

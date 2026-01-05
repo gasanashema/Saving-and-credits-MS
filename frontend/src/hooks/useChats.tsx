@@ -46,14 +46,22 @@ export default function useChats(otherType: 'admin'|'member'|null, otherId: numb
   }, [fetchConversation]);
 
   const sendMessage = useCallback(async (receiverType: 'admin'|'member', receiverId: number, message: string) => {
+    // optimistic append with temporary id
+    const optimistic = { id: Date.now(), sender_type: user?.role === 'member' ? 'member' : 'admin', sender_id: user?.id || 0, receiver_type: receiverType, receiver_id: receiverId, message, is_read: false, created_at: new Date().toISOString(), sending: true } as any;
+    setMessages(prev => [...prev, optimistic]);
     try {
       const resp = await server.post('/chat/send', { receiverType, receiverId, message });
-      // optimistic append
-      setMessages(prev => [...prev, { id: resp.data.id, sender_type: user?.role === 'member' ? 'member' : 'admin', sender_id: user?.id || 0, receiver_type: receiverType, receiver_id: receiverId, message, is_read: false, created_at: new Date().toISOString() }]);
+      const serverChat = resp?.data?.chat || (resp?.data?.id ? { id: resp.data.id, sender_type: optimistic.sender_type, sender_id: optimistic.sender_id, receiver_type: receiverType, receiver_id: receiverId, message, is_read: false, created_at: new Date().toISOString() } : null);
+      if (serverChat && serverChat.id) {
+        setMessages(prev => prev.map(m => (m.id === optimistic.id ? serverChat : m)));
+      } else {
+        setMessages(prev => prev.map(m => (m.id === optimistic.id ? { ...m, sending: false } : m)));
+      }
       try { window.dispatchEvent(new CustomEvent('chats:changed')); } catch(e){}
       return resp.data;
     } catch (err) {
       console.error('sendMessage error', err);
+      setMessages(prev => prev.map(m => (m.id === optimistic.id ? { ...m, failed: true, sending: false } : m)));
       throw err;
     }
   }, [user]);

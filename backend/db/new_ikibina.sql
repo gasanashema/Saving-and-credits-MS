@@ -266,6 +266,15 @@ CREATE TABLE `notifications` (
   CONSTRAINT `notifications_group_fk` FOREIGN KEY (`group_id`) REFERENCES `notification_groups` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Demo notifications (for UI testing)
+INSERT INTO `notifications` (`sender_admin_id`, `receiver_type`, `receiver_id`, `group_id`, `title`, `message`, `url`, `is_read`, `created_at`) VALUES
+(1, 'member', 1, NULL, 'Loan approved', 'Congratulations! Your loan has been approved by the committee.', '/member/loans/0', 0, '2025-06-02 10:00:00'),
+(2, 'member', 2, NULL, 'Loan application received', 'Your loan application has been received and is pending review.', '/admin/loans/1', 0, '2025-07-01 09:30:00'),
+(0, 'admin', 1, NULL, 'Weekly report available', 'Weekly financial report for your review is ready.', '/admin/reports', 0, '2025-07-06 08:00:00'),
+(1, 'member', 3, NULL, 'Payment received', 'We have received your loan payment. Thank you.', '/member/payments/0', 1, '2025-06-15 14:20:00'),
+(2, 'member', 4, NULL, 'Policy update', 'Please review the updated savings policy effective next month.', '/member/settings', 0, '2025-08-01 12:00:00'),
+(1, 'member', 0, NULL, 'New message from admin', 'You have received a new message from the admin. Open chat to reply.', '/member/chat', 0, '2025-09-01 09:45:00');
+
 -- =============================
 -- CHATS
 -- =============================
