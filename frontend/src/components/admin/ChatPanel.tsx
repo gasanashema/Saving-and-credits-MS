@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { PaperAirplaneIcon, UserGroupIcon, PlusIcon } from '@heroicons/react/24/outline';
 import server from '../../utils/server';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import Modal from '../ui/Modal';
 import { toast } from 'sonner';
 
 const ChatPanel: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [admins, setAdmins] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
 
@@ -120,7 +122,7 @@ const ChatPanel: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Chat</h2>
+        <h2 className="text-xl font-semibold">{t('chat') || 'Help Center'}</h2>
         <div className="flex items-center gap-2">
           <button onClick={()=> setIsGroupModalOpen(true)} className="px-3 py-2 bg-blue-600 text-white rounded-md flex items-center"><PlusIcon className="h-4 w-4 mr-2"/>Create Group</button>
           <button onClick={()=> setIsSendOpen(true)} className="px-3 py-2 bg-green-600 text-white rounded-md flex items-center"><PaperAirplaneIcon className="h-4 w-4 mr-2"/>Send</button>

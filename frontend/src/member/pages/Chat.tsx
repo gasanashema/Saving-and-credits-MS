@@ -69,8 +69,8 @@ const Chat: React.FC = () => {
   return (
     <motion.div initial={{opacity:0}} animate={{opacity:1}} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t('chat') || 'Chat'}</h1>
-        <p className="text-gray-500 dark:text-gray-400">{t('chatDescription') || 'Message with admins'}</p>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t('chat') || 'Help Center'}</h1>
+        <p className="text-gray-500 dark:text-gray-400">{t('chatDescription') || 'Get support from admins'}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[600px]">

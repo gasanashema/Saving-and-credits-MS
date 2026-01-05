@@ -1,8 +1,8 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon, ExclamationTriangleIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import useUnreadNotifications from '../../../hooks/useUnreadNotifications';
 import useUnreadChats from '../../../hooks/useUnreadChats';
 interface SidebarProps {
@@ -14,6 +14,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const {
     t
   } = useLanguage();
+  const navigate = useNavigate();
   const {
     theme
   } = useTheme();
@@ -44,10 +45,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     path: 'reports',
     name: t('reports'),
     icon: <ChartBarIcon className="w-6 h-6" />
-  }, {
-    path: 'chat',
-    name: t('chat') || 'Chat',
-    icon: <PaperAirplaneIcon className="w-6 h-6" />
   }, {
     path: 'notifications',
     name: t('notifications'),
@@ -95,8 +92,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
             {t('contactSupport')}
           </p>
-          <button className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+          <button onClick={() => navigate('chat')} className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
             {t('supportCenter')}
+            {unreadChats > 0 && <span className="bg-indigo-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{unreadChats}</span>}
           </button>
         </div>
       </div>
