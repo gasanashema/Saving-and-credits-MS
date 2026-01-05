@@ -1,9 +1,7 @@
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
 import StatsCard from '../../components/ui/StatsCard';
-import ChartCard from '../../components/ui/ChartCard';
 import { UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ClockIcon, CurrencyDollarIcon, BellIcon } from '@heroicons/react/24/outline';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useMemberLoans from '../../hooks/useMemberLoans';
@@ -121,12 +119,8 @@ const Dashboard: React.FC = () => {
   const { notifications, unreadCount } = useMemberNotifications();
   const [data, setData] = useState<any>({
     stats: { totalLoans: 0, totalSavings: 0, activeLoans: 0, pendingRepayments: 0 },
-    savingsData: [],
-    loanDistribution: [],
-    repaymentPerformance: [],
     recentActivity: []
   });
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   useEffect(() => {
     const processedData = processData({ loans, payments, savings });

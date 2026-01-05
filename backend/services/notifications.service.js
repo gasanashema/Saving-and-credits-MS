@@ -10,17 +10,29 @@ const verifyAdmin = (req) => {
   }
   const token = authHeader.substring(7);
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
-  if (decoded.role !== 'admin' && decoded.role !== 'supperadmin') {
+  // Accept different admin role spellings used across the codebase
+  const adminRoles = new Set(['admin', 'sadmin', 'supperadmin', 'super-admin', 'supper-admin']);
+  if (!adminRoles.has(decoded.role)) {
     throw new Error('Only admins can perform this action');
   }
   return decoded;
+};
+
+// Generic token verification helper
+const verifyToken = (req) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Unauthorized');
+  }
+  const token = authHeader.substring(7);
+  return jwt.verify(token, process.env.JWT_SECRET);
 };
 
 // Send message from admin to another admin
 const sendAdminToAdmin = async (req, res) => {
   try {
     const decoded = verifyAdmin(req);
-    const { receiverId, title, message } = req.body;
+    const { receiverId, title, message } = req.body; 
 
     if (!receiverId || !title || !message) {
       return res.status(400).json({ error: 'receiverId, title, and message are required' });
@@ -32,12 +44,11 @@ const sendAdminToAdmin = async (req, res) => {
       return res.status(404).json({ error: 'Admin not found' });
     }
 
-    const [result] = await conn.query(
-      "INSERT INTO notifications (sender_admin_id, receiver_type, receiver_id, title, message) VALUES (?, 'admin', ?, ?, ?)",
-      [decoded.id, receiverId, title, message]
-    );
+    const url = req.body.url || null;
+    const { createNotification } = require('../utilities/notify.helper');
+    const id = await createNotification({ senderAdminId: decoded.id, receiverType: 'admin', receiverId, title, message, url });
 
-    return res.json({ message: 'Message sent successfully', id: result.insertId });
+    return res.json({ message: 'Message sent successfully', id });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: error.message });
@@ -60,12 +71,14 @@ const sendAdminToMember = async (req, res) => {
       return res.status(404).json({ error: 'Member not found' });
     }
 
-    const [result] = await conn.query(
-      "INSERT INTO notifications (sender_admin_id, receiver_type, receiver_id, title, message) VALUES (?, 'member', ?, ?, ?)",
-      [decoded.id, receiverId, title, message]
-    );
+    // support optional url in request body
+    const url = req.body.url || null;
 
-    return res.json({ message: 'Message sent successfully', id: result.insertId });
+    // use helper to create notification
+    const { createNotification } = require('../utilities/notify.helper');
+    const id = await createNotification({ senderAdminId: decoded.id, receiverType: 'member', receiverId, title, message, url });
+
+    return res.json({ message: 'Message sent successfully', id });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: error.message });
@@ -95,12 +108,12 @@ const sendToGroup = async (req, res) => {
       return res.status(400).json({ error: 'Group has no members' });
     }
 
+    const url = req.body.url || null;
+    const { createNotification } = require('../utilities/notify.helper');
+
     // Insert notifications for each member
     const insertPromises = members.map(member =>
-      conn.query(
-        "INSERT INTO notifications (sender_admin_id, receiver_type, receiver_id, group_id, title, message) VALUES (?, ?, ?, ?, ?, ?)",
-        [decoded.id, member.recipient_type, member.recipient_id, groupId, title, message]
-      )
+      createNotification({ senderAdminId: decoded.id, receiverType: member.recipient_type, receiverId: member.recipient_id, title, message, url })
     );
 
     await Promise.all(insertPromises);
@@ -112,47 +125,69 @@ const sendToGroup = async (req, res) => {
   }
 };
 
-// Get notifications for admin
+// Get notifications for admin (requires auth; admins can only fetch their own notifications)
 const getAdminNotifications = async (req, res) => {
   try {
+    const decoded = verifyToken(req);
     const { adminId } = req.params;
+    const adminRoles = new Set(['admin', 'sadmin', 'supperadmin', 'super-admin', 'supper-admin']);
+    if (!adminRoles.has(decoded.role) || Number(decoded.id) !== Number(adminId)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     const [notifications] = await conn.query(
-      "SELECT id, title, message, is_read, created_at FROM notifications WHERE receiver_type = 'admin' AND receiver_id = ? ORDER BY created_at DESC",
+      "SELECT id, title, message, url, is_read, created_at FROM notifications WHERE receiver_type = 'admin' AND receiver_id = ? ORDER BY created_at DESC",
       [adminId]
     );
 
     return res.json(notifications);
   } catch (error) {
     console.log(error);
+    if (error.name === 'JsonWebTokenError' || error.message === 'Unauthorized') return res.status(401).json({ error: 'Unauthorized' });
     return res.status(500).json({ error: error.message });
   }
 };
 
-// Get notifications for member
+// Get notifications for member (requires auth; members can only fetch their own notifications)
 const getMemberNotifications = async (req, res) => {
   try {
+    const decoded = verifyToken(req);
     const { memberId } = req.params;
 
+    if (decoded.role === 'member' && Number(decoded.id) !== Number(memberId)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     const [notifications] = await conn.query(
-      "SELECT id, title, message, is_read, created_at FROM notifications WHERE receiver_type = 'member' AND receiver_id = ? ORDER BY created_at DESC",
+      "SELECT id, title, message, url, is_read, created_at FROM notifications WHERE receiver_type = 'member' AND receiver_id = ? ORDER BY created_at DESC",
       [memberId]
     );
 
     return res.json(notifications);
   } catch (error) {
     console.log(error);
+    if (error.name === 'JsonWebTokenError' || error.message === 'Unauthorized') return res.status(401).json({ error: 'Unauthorized' });
     return res.status(500).json({ error: error.message });
   }
 };
 
-// Get unread count
+// Get unread count (requires auth; users can only access their own counts)
 const getUnreadCount = async (req, res) => {
   try {
     const { type, id } = req.params;
 
     if (!['admin', 'member'].includes(type)) {
       return res.status(400).json({ error: 'Invalid type' });
+    }
+
+    const decoded = verifyToken(req);
+
+    if (decoded.role === 'member') {
+      if (type !== 'member' || Number(decoded.id) !== Number(id)) return res.status(403).json({ error: 'Access denied' });
+    } else {
+      // admin-like roles
+      const adminRoles = new Set(['admin', 'sadmin', 'supperadmin', 'super-admin', 'supper-admin']);
+      if (!adminRoles.has(decoded.role) || type !== 'admin' || Number(decoded.id) !== Number(id)) return res.status(403).json({ error: 'Access denied' });
     }
 
     const [result] = await conn.query(
@@ -163,20 +198,41 @@ const getUnreadCount = async (req, res) => {
     return res.json({ unread: result[0].unread });
   } catch (error) {
     console.log(error);
+    if (error.name === 'JsonWebTokenError' || error.message === 'Unauthorized') return res.status(401).json({ error: 'Unauthorized' });
     return res.status(500).json({ error: error.message });
   }
 };
 
-// Mark notification as read
+// Mark notification as read (requires auth; only the notification recipient may mark it)
 const markAsRead = async (req, res) => {
   try {
+    const decoded = verifyToken(req);
     const { notificationId } = req.params;
+
+    const [rows] = await conn.query("SELECT receiver_type, receiver_id, is_read FROM notifications WHERE id = ?", [notificationId]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Notification not found' });
+
+    const notification = rows[0];
+
+    if (notification.receiver_type === 'member') {
+      if (decoded.role !== 'member' || Number(decoded.id) !== Number(notification.receiver_id)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    } else if (notification.receiver_type === 'admin') {
+      const adminRoles = new Set(['admin', 'sadmin', 'supperadmin', 'super-admin', 'supper-admin']);
+      if (!adminRoles.has(decoded.role) || Number(decoded.id) !== Number(notification.receiver_id)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    } else {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     await conn.query("UPDATE notifications SET is_read = 1 WHERE id = ?", [notificationId]);
 
     return res.json({ message: 'Notification marked as read' });
   } catch (error) {
     console.log(error);
+    if (error.name === 'JsonWebTokenError' || error.message === 'Unauthorized') return res.status(401).json({ error: 'Unauthorized' });
     return res.status(500).json({ error: error.message });
   }
 };

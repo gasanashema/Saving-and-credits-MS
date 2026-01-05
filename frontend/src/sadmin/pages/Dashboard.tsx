@@ -1,9 +1,7 @@
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
 import StatsCard from '../../components/ui/StatsCard';
-import ChartCard from '../../components/ui/ChartCard';
 import { UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ClockIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { useState, useEffect } from 'react';
 import server from '../../utils/server';
 import { toast } from 'sonner';
@@ -140,7 +138,7 @@ const Dashboard: React.FC = () => {
     repaymentPerformance: [],
     recentActivity: []
   });
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+  
 
   useEffect(() => {
     const loadData = async () => {
@@ -214,78 +212,7 @@ const Dashboard: React.FC = () => {
           <StatsCard title={t('pendingRepayments')} value={data.stats.pendingRepayments.toString()} icon={<ArrowDownCircleIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-purple-500" />
         </motion.div>
       </div>
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div variants={item}>
-          <ChartCard title={t('monthlySavingsTrend')}>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.savingsData} margin={{
-                top: 20,
-                right: 30,
-                left: 20,
-                bottom: 5
-              }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="month" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip contentStyle={{
-                  backgroundColor: '#1F2937',
-                  borderColor: '#374151',
-                  color: '#F9FAFB'
-                }} formatter={value => [formatCurrency(value as number), 'Amount']} />
-                  <Bar dataKey="amount" fill="#10B981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </ChartCard>
-        </motion.div>
-        <motion.div variants={item}>
-          <ChartCard title={t('loanDistribution')}>
-            <div className="h-80 flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={data.loanDistribution} cx="50%" cy="50%" labelLine={false} outerRadius={100} fill="#8884d8" dataKey="value" label={({
-                  name,
-                  percent
-                }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {data.loanDistribution.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={value => [`${value}`, 'Count']} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </ChartCard>
-        </motion.div>
-        <motion.div variants={item} className="lg:col-span-2">
-          <ChartCard title={t('repaymentPerformance')}>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data.repaymentPerformance} margin={{
-                top: 20,
-                right: 30,
-                left: 20,
-                bottom: 5
-              }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="month" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip contentStyle={{
-                  backgroundColor: '#1F2937',
-                  borderColor: '#374151',
-                  color: '#F9FAFB'
-                }} formatter={value => [`${value}%`, '']} />
-                  <Legend />
-                  <Line type="monotone" dataKey="onTime" stroke="#10B981" strokeWidth={2} activeDot={{
-                  r: 8
-                }} />
-                  <Line type="monotone" dataKey="late" stroke="#EF4444" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </ChartCard>
-        </motion.div>
-      </div>
+      
       {/* Recent Activity */}
       <motion.div variants={item}>
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">

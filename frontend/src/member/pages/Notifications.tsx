@@ -29,7 +29,16 @@ const Notifications: React.FC = () => {
     setModalOpen(true);
     if (!notification.is_read) {
       await markAsRead(notification.id);
+      // notify unread hook
+      try { window.dispatchEvent(new CustomEvent('notifications:changed')); } catch(e){}
     }
+  };
+
+  const handleOpenUrl = (url: string | null) => {
+    if (!url) return;
+    // navigate to url (internal or external)
+    if (url.startsWith('/')) window.location.assign(url);
+    else window.open(url, '_blank');
   };
 
   if (loading) return <div className="p-4 text-gray-500">{t('loading')}</div>;
@@ -124,15 +133,20 @@ const Notifications: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  {!notification.is_read && (
-                    <button
-                      onClick={() => handleMarkAsRead(notification.id)}
-                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                      title={t('markAsRead')}
-                    >
-                      <EnvelopeOpenIcon className="h-5 w-5" />
-                    </button>
-                  )}
+                  <div className="flex items-center space-x-2">
+                    {!notification.is_read && (
+                      <button
+                        onClick={() => handleMarkAsRead(notification.id)}
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        title={t('markAsRead')}
+                      >
+                        <EnvelopeOpenIcon className="h-5 w-5" />
+                      </button>
+                    )}
+                    {notification.url && (
+                      <button onClick={() => handleOpenUrl(notification.url)} className="text-sm text-emerald-600 hover:underline">Open</button>
+                    )}
+                  </div>
                 </div>
               </motion.li>
             ))}

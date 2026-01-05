@@ -2,7 +2,9 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon, ExclamationTriangleIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import useUnreadNotifications from '../../../hooks/useUnreadNotifications';
+import useUnreadChats from '../../../hooks/useUnreadChats';
 interface SidebarProps {
   toggleSidebar: () => void;
 }
@@ -15,6 +17,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const {
     theme
   } = useTheme();
+  const { unread } = useUnreadNotifications();
+  const { unread: unreadChats } = useUnreadChats();
+
   const navItems = [{
     path: '',
     name: t('dashboard'),
@@ -39,6 +44,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     path: 'reports',
     name: t('reports'),
     icon: <ChartBarIcon className="w-6 h-6" />
+  }, {
+    path: 'chat',
+    name: t('chat') || 'Chat',
+    icon: <PaperAirplaneIcon className="w-6 h-6" />
   }, {
     path: 'notifications',
     name: t('notifications'),
@@ -68,8 +77,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           }) => `flex items-center px-4 py-3 rounded-lg transition-colors ${isActive ? 'bg-emerald-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                 {item.icon}
                 <span className="ml-3">{item.name}</span>
-                {item.path === '/notifications' && <span className="ml-auto bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                    3
+                {item.path === 'notifications' && unread > 0 && <span className="ml-auto bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                    {unread}
+                  </span>}
+                {item.path === 'chat' && unreadChats > 0 && <span className="ml-auto bg-indigo-600 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                    {unreadChats}
                   </span>}
               </NavLink>
             </li>)}

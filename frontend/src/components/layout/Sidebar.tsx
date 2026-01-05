@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import useUnreadNotifications from '../../hooks/useUnreadNotifications';
 interface SidebarProps {
   toggleSidebar: () => void;
 }
@@ -50,6 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     name: t('settings'),
     icon: <Cog6ToothIcon className="w-6 h-6" />
   }];
+  const { unread } = useUnreadNotifications();
   return <div className={`h-full w-64 flex-shrink-0 ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'} border-r border-gray-200 dark:border-gray-700 flex flex-col`}>
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center space-x-2">
@@ -70,8 +72,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           }) => `flex items-center px-4 py-3 rounded-lg transition-colors ${isActive ? 'bg-emerald-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                 {item.icon}
                 <span className="ml-3">{item.name}</span>
-                {item.path === '/notifications' && <span className="ml-auto bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                    3
+                {item.path === '/notifications' && unread > 0 && <span className="ml-auto bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                    {unread}
                   </span>}
               </NavLink>
             </li>)}

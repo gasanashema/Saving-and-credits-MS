@@ -258,11 +258,27 @@ CREATE TABLE `notifications` (
   `group_id` int(11) DEFAULT NULL,
   `title` varchar(150) NOT NULL,
   `message` text NOT NULL,
+  `url` varchar(255) DEFAULT NULL,
   `is_read` tinyint(1) DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   CONSTRAINT `notifications_sender_fk` FOREIGN KEY (`sender_admin_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE,
   CONSTRAINT `notifications_group_fk` FOREIGN KEY (`group_id`) REFERENCES `notification_groups` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =============================
+-- CHATS
+-- =============================
+CREATE TABLE `chats` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `sender_type` enum('admin','member') NOT NULL,
+  `sender_id` int(11) NOT NULL,
+  `receiver_type` enum('admin','member') NOT NULL,
+  `receiver_id` int(11) NOT NULL,
+  `message` text NOT NULL,
+  `is_read` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Auto increment reset
@@ -279,5 +295,6 @@ ALTER TABLE `loanpayment` AUTO_INCREMENT = 0;
 ALTER TABLE `notification_groups` AUTO_INCREMENT = 0;
 ALTER TABLE `notification_group_members` AUTO_INCREMENT = 0;
 ALTER TABLE `notifications` AUTO_INCREMENT = 0;
+ALTER TABLE `chats` AUTO_INCREMENT = 0;
 
 COMMIT;

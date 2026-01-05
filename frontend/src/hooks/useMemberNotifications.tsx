@@ -59,6 +59,8 @@ export default function useMemberNotifications(): UseMemberNotificationsResult {
       setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, is_read: true } : n)
       );
+      // notify other parts of the app (including the unread hook) that notifications changed
+      try { window.dispatchEvent(new CustomEvent('notifications:changed')); } catch (e) { /* ignore */ }
     } catch (err) {
       console.error("Mark as read error:", err);
     }
@@ -68,6 +70,7 @@ export default function useMemberNotifications(): UseMemberNotificationsResult {
     try {
       // Mark all locally for now, but ideally call a bulk update endpoint
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      try { window.dispatchEvent(new CustomEvent('notifications:changed')); } catch (e) { /* ignore */ }
     } catch (err) {
       console.error("Mark all as read error:", err);
     }

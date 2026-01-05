@@ -1,6 +1,8 @@
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const conn = require("../db/connection");
+const { createNotification } = require('../utilities/notify.helper');
+
 const addLoan = async (req, res) => {
   try {
     const { amount, duration, re, rate, amountTopay } = req.body;
@@ -16,6 +18,18 @@ const addLoan = async (req, res) => {
       "INSERT INTO `loan`(`requestDate`, `re`, `amount`, `duration`,`memberId`, `amountTopay`,`rate`) VALUES (?,?,?,?,?,?,?)",
       [dt, re, amount, duration, memberId, amountTopay, rate]
     );
+
+    // Notify all admins about new loan application
+    try {
+      const [admins] = await conn.query("SELECT user_id FROM users WHERE role IN ('admin','supperadmin','sadmin')");
+      const title = 'New loan application';
+      const message = `Member ${memberId} submitted a loan application of ${amount}`;
+      const url = `/admin/loans/${loan.insertId}`;
+      await Promise.all(admins.map(a => createNotification({ senderAdminId: 0, receiverType: 'admin', receiverId: a.user_id, title, message, url })));
+    } catch (e) {
+      console.error('Failed to create admin notifications for loan application', e);
+    }
+
     return res.json({ status: 201, message: "loan Request success", loan });
   } catch (error) {
     console.log(error);
@@ -56,6 +70,29 @@ const loanAction = async (req, res) => {
         "UPDATE `loan` SET status=?, apploverId=?, applovedDate=? WHERE loanId=?",
         [action, approverId, dt, loanId]
       );
+
+      // Notify member about status change
+      try {
+        const [loanRow] = await conn.query('SELECT memberId FROM loan WHERE loanId = ?', [loanId]);
+        if (loanRow && loanRow.length > 0) {
+          const memberIdToNotify = loanRow[0].memberId;
+          let title = 'Loan status updated';
+          let message = `Your loan #${loanId} status changed to ${action}`;
+          let url = `/member/loans/${loanId}`;
+          // When approved make it clearer
+          if (action === 'active') {
+            title = 'Loan approved';
+            message = `Your loan #${loanId} has been approved`;
+          } else if (action === 'rejected') {
+            title = 'Loan rejected';
+            message = `Your loan #${loanId} has been rejected`;
+          }
+          await createNotification({ senderAdminId: approverId, receiverType: 'member', receiverId: memberIdToNotify, title, message, url });
+        }
+      } catch (e) {
+        console.error('Failed to create notification for loan action', e);
+      }
+
       return res.json({ data: result, message: "igikorwa cyangenze neza cyane" });
     }
   } catch (error) {
