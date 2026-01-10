@@ -186,22 +186,42 @@ const getTotal = async (req, res) => {
   }
 };
 
+const getMemberProfile = async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+    const id = jwt.verify(token, process.env.JWT_SECRET).id;
+
+    const [member] = await conn.query(
+      "SELECT id as member_id, nid, firstName, lastName, telephone, email, balance FROM members WHERE id = ?",
+      [id]
+    );
+
+    if (member.length === 0) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+
+    return res.json(member[0]);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+};
+
 const resetPassword = async (req, res) => {
   const { id } = req.params;
-  
+
   try {
     // Reset to default password "12345" with the provided hash
     const defaultPasswordHash = '$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK';
-    
+
     const [result] = await conn.query(
-      "UPDATE members SET password = ? WHERE member_id = ?",
+      "UPDATE members SET password = ? WHERE id = ?",
       [defaultPasswordHash, id]
     );
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Member not found" });
     }
-    
+
     return res.json({ status: 200, message: "Password reset successfully" });
   } catch (error) {
     return res.status(400).json({ error: error.message });
@@ -218,4 +238,5 @@ module.exports = {
   updateMember,
   getOneMemberSavings,
   resetPassword,
+  getMemberProfile,
 };

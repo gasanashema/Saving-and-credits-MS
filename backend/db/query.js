@@ -4,7 +4,7 @@ const penalityQueryGenerator = (date, amount, pType = 1) => {
     pType +
     "','" +
     amount +
-    "', member_id FROM members LEFT JOIN savings ON savings.memberId=member_id WHERE member_id NOT IN (SELECT memberId FROM `members` INNER JOIN savings WHERE members.member_id = savings.memberId AND savings.date='" +
+    "', id FROM members LEFT JOIN savings ON savings.memberId=id WHERE id NOT IN (SELECT memberId FROM `members` INNER JOIN savings WHERE members.id = savings.memberId AND savings.date='" +
     date +
     "')"
   );

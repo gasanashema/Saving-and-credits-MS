@@ -25,7 +25,7 @@ const Members: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const { members, loading: membersLoading, error: membersError } = useAllMembers();
+  const { members, loading: membersLoading, error: membersError, refresh } = useAllMembers();
   const [membersList, setMembersList] = useState<Member[]>([]);
   const [newMember, setNewMember] = useState({
     nid: "",
@@ -47,10 +47,7 @@ const Members: React.FC = () => {
   const [savingsData, setSavingsData] = useState<MemberSavings[]>([]);
 
   // Update the useEffect to use the data from useMemberSavings hook
-  const { savings } = useMemberSavings(
-    selectedMember?.id.toString() || "", 
-    10
-  );
+  const { savings } = useMemberSavings(selectedMember?.id.toString());
 
   useEffect(() => {
     setMembersList(members);
@@ -160,10 +157,10 @@ const Members: React.FC = () => {
       
       // Close modal
       setIsAddModalOpen(false);
-      
+
       // Refresh members list
-      window.location.reload();
-      
+      refresh();
+
       // Show success message
       toast.success("Member added successfully!");
     } catch (error: any) {

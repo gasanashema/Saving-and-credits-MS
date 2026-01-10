@@ -59,7 +59,7 @@ const dashBoard = async (req, res) => {
 const getSelectList = async (req, res) => {
   try {
     const [list] = await conn.query(
-      "SELECT member_id as value, CONCAT(firstName,' ',lastName) as name from members"
+      "SELECT id as value, CONCAT(firstName,' ',lastName) as name from members"
     );
     return res.json(list);
   } catch (error) {

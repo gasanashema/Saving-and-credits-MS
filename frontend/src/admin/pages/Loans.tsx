@@ -7,6 +7,7 @@ import { BackendLoan } from '../../types/loanTypes';
 import { MagnifyingGlassIcon, PlusIcon, CheckCircleIcon, XCircleIcon, BanknotesIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
+import server from '../../utils/server';
 
 // Add loan purposes for the form
 const loanPurposes = ['business', 'education', 'housing', 'personal', 'emergency', 'agriculture'];
@@ -35,7 +36,7 @@ const Loans: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('all');
 
   // hook returns backend-shaped loans
-  const { loans: backendLoans = [], loading, error } = useLoans(30);
+  const { loans: backendLoans = [], loading, error, refresh } = useLoans(30);
 
   // displayLoans is the UI list we render and update locally
   const [displayLoans, setDisplayLoans] = useState<UiLoan[]>([]);
@@ -143,39 +144,48 @@ const Loans: React.FC = () => {
     return isValid;
   };
 
-  // Create a local UI loan (does not call backend) — adapt to call API as needed
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const now = new Date();
-    const due = new Date(now);
-    due.setMonth(due.getMonth() + Number(newLoan.term));
+    try {
+      const rate = Number(newLoan.interestRate) / 100; // Assuming interestRate is percentage
+      const duration = Number(newLoan.term);
+      const amount = Number(newLoan.amount);
+      const amountTopay = amount + (amount * rate * duration / 12); // Simple interest calculation
 
-    const created: UiLoan = {
-      id: Date.now(),
-      member: members.find(m => m.id.toString() === newLoan.member)?.name || `#${newLoan.member}`,
-      amount: Number(newLoan.amount),
-      status: 'pending',
-      progress: 0,
-      date: now.toISOString(),
-      purpose: newLoan.purpose,
-      term: Number(newLoan.term),
-      interestRate: Number(newLoan.interestRate),
-      dueDate: due.toISOString(),
-      notes: newLoan.notes || undefined
-    };
+      await server.post("/loans", {
+        memberId: newLoan.member,
+        amount,
+        duration,
+        re: newLoan.notes || newLoan.purpose,
+        rate,
+        amountTopay,
+      });
 
-    setDisplayLoans(prev => [created, ...prev]);
-    setNewLoan({ member: '', amount: '', purpose: 'business', term: '6', interestRate: '5', notes: '' });
-    setIsAddModalOpen(false);
-    toast.success(t('loanRequestSubmitted'));
+      setNewLoan({ member: '', amount: '', purpose: 'business', term: '6', interestRate: '5', notes: '' });
+      setIsAddModalOpen(false);
+      toast.success(t('loanRequestSubmitted'));
+      // Refresh loans list
+      refresh();
+    } catch (error) {
+      console.error("Failed to submit loan:", error);
+      toast.error(t('failedToSubmitLoan'));
+    }
   };
 
-  const handleStatusChange = (loanId: number, newStatus: string) => {
-    setDisplayLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: newStatus } : l));
-    setIsViewModalOpen(false);
-    toast.success(newStatus === 'approved' || newStatus === 'active' ? t('loanApproved') : t('loanRejected'));
+  const handleStatusChange = async (loanId: number, newStatus: string) => {
+    try {
+      await server.get(`/loans/actions/${loanId}/${newStatus}`);
+      setDisplayLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: newStatus } : l));
+      setIsViewModalOpen(false);
+      toast.success(newStatus === 'approved' || newStatus === 'active' ? t('loanApproved') : t('loanRejected'));
+      // Refresh the loans list
+      refresh();
+    } catch (error) {
+      console.error('Failed to update loan status:', error);
+      toast.error('Failed to update loan status');
+    }
   };
 
   if (loading) return <div className="p-4 text-gray-500">{t('loading')}</div>;
@@ -377,10 +387,7 @@ const Loans: React.FC = () => {
 
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('loanAmount')} *</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><span className="text-gray-500 dark:text-gray-400">$</span></div>
-                <input type="number" id="amount" name="amount" value={newLoan.amount} onChange={handleInputChange} min="1" step="1" className="w-full pl-8 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" placeholder="0" />
-              </div>
+              <input type="number" id="amount" name="amount" value={newLoan.amount} onChange={handleInputChange} min="1" step="1" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" placeholder="0" />
               {errors.amount && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.amount}</p>}
             </div>
 

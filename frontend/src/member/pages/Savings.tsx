@@ -6,6 +6,7 @@ import useMemberSavings from "../../hooks/useMemberSavings";
 import Modal from "../components/ui/Modal";
 import server from "../../utils/server";
 import { useAuth } from "../../context/AuthContext";
+import { toast } from "sonner";
 
 interface SavingType {
   name: string;
@@ -49,15 +50,34 @@ const Savings: React.FC = () => {
     e.preventDefault();
     if (!user) return;
 
+    // Validate form
+    if (!formData.stId || !formData.numberOfShares || !formData.shareValue) {
+      setModalError('Please fill in all required fields');
+      return;
+    }
+
+    const shares = parseInt(formData.numberOfShares);
+    const value = parseInt(formData.shareValue);
+
+    if (isNaN(shares) || shares <= 0) {
+      setModalError('Number of shares must be a positive number');
+      return;
+    }
+
+    if (isNaN(value) || value <= 0) {
+      setModalError('Share value must be a positive number');
+      return;
+    }
+
     setModalLoading(true);
     setModalError('');
 
     try {
       await server.post('/saving', {
-        memberId: user.id,
+        memberId: parseInt(user.id),
         stId: parseInt(formData.stId),
-        numberOfShares: parseInt(formData.numberOfShares),
-        shareValue: parseInt(formData.shareValue)
+        numberOfShares: shares,
+        shareValue: value
       });
 
       setIsModalOpen(false);
@@ -69,9 +89,10 @@ const Savings: React.FC = () => {
       });
       setTotalAmount(0);
       refresh();
-    } catch (err) {
+      toast.success('Saving recorded successfully');
+    } catch (err: any) {
       console.error('Failed to save:', err);
-      setModalError(err instanceof Error ? err.message : 'Failed to save');
+      setModalError(err.response?.data?.error || err.message || 'Failed to save');
     } finally {
       setModalLoading(false);
     }

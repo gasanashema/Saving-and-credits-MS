@@ -8,25 +8,44 @@ import {
 import Modal from "../../components/ui/Modal";
 import { toast } from "sonner";
 import useSavings from "../../hooks/useSavings";
+import useAllMembers from "../../hooks/useAllMembers";
 import { SavingType } from "../../types/savingTypes";
+import server from "../../utils/server";
 
 const Savings: React.FC = () => {
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [transactionData, setTransactionData] = useState({
-    amount: "",
-    type: "deposit" as "deposit" | "withdrawal",
+    memberId: "",
+    stId: "",
+    numberOfShares: "",
+    shareValue: "",
   });
-  const [errors, setErrors] = useState({ amount: "" });
+  const [errors, setErrors] = useState({ memberId: "", stId: "", numberOfShares: "", shareValue: "" });
+  const [savingTypes, setSavingTypes] = useState([]);
 
   // useSavings returns the data (query handles ordering)
-  const { savings = [], loading, error } = useSavings(30);
+  const { savings = [], loading, error, refresh } = useSavings(30);
+  const { members = [] } = useAllMembers();
 
   // Debug: log raw data so you can inspect keys coming from the API
   useEffect(() => {
     console.debug("useSavings -> raw data:", savings);
   }, [savings]);
+
+  // Fetch saving types
+  useEffect(() => {
+    const fetchSavingTypes = async () => {
+      try {
+        const resp = await server.get("/saving/type/list");
+        setSavingTypes(resp.data);
+      } catch (error) {
+        console.error("Failed to fetch saving types:", error);
+      }
+    };
+    fetchSavingTypes();
+  }, []);
 
   const formatCurrency = (value: number) =>
     value.toLocaleString(undefined, {
@@ -46,31 +65,53 @@ const Savings: React.FC = () => {
   const validateForm = () => {
     const newErrors = { ...errors };
     let valid = true;
+    if (!transactionData.memberId) {
+      newErrors.memberId = t("memberRequired");
+      valid = false;
+    }
+    if (!transactionData.stId) {
+      newErrors.stId = t("savingTypeRequired");
+      valid = false;
+    }
     if (
-      !transactionData.amount ||
-      isNaN(Number(transactionData.amount)) ||
-      Number(transactionData.amount) <= 0
+      !transactionData.numberOfShares ||
+      isNaN(Number(transactionData.numberOfShares)) ||
+      Number(transactionData.numberOfShares) <= 0
     ) {
-      newErrors.amount = t("invalidAmount");
+      newErrors.numberOfShares = t("invalidNumberOfShares");
+      valid = false;
+    }
+    if (
+      !transactionData.shareValue ||
+      isNaN(Number(transactionData.shareValue)) ||
+      Number(transactionData.shareValue) <= 0
+    ) {
+      newErrors.shareValue = t("invalidShareValue");
       valid = false;
     }
     setErrors(newErrors);
     return valid;
   };
 
-  // simplified submit — persistence should be done via API elsewhere
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    setTransactionData({ amount: "", type: "deposit" });
-    setIsAddModalOpen(false);
-    toast.success(
-      t(
-        transactionData.type === "deposit"
-          ? "depositRecorded"
-          : "withdrawalRecorded"
-      )
-    );
+    try {
+      await server.post("/saving", {
+        memberId: transactionData.memberId,
+        stId: transactionData.stId,
+        numberOfShares: Number(transactionData.numberOfShares),
+        shareValue: Number(transactionData.shareValue),
+      });
+      setTransactionData({ memberId: "", stId: "", numberOfShares: "", shareValue: "" });
+      setIsAddModalOpen(false);
+      toast.success(t("savingRecorded"));
+      // Refresh savings list
+      refresh();
+    } catch (error) {
+      console.error("Failed to add saving:", error);
+      toast.error(t("failedToRecordSaving"));
+    }
   };
 
   const filteredSavings = (savings || []).filter((saving: any) => {
@@ -204,73 +245,112 @@ const Savings: React.FC = () => {
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title={t("recordTransaction")}
+        title={t("recordSaving")}
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             <div>
               <label
-                htmlFor="type"
+                htmlFor="memberId"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
-                {t("transactionType")} *
+                {t("member")} *
               </label>
-              <div className="flex space-x-4">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="type"
-                    value="deposit"
-                    checked={transactionData.type === "deposit"}
-                    onChange={handleInputChange}
-                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300"
-                  />
-                  <span className="ml-2 text-gray-700 dark:text-gray-300">
-                    {t("deposit")}
-                  </span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="type"
-                    value="withdrawal"
-                    checked={transactionData.type === "withdrawal"}
-                    onChange={handleInputChange}
-                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
-                  />
-                  <span className="ml-2 text-gray-700 dark:text-gray-300">
-                    {t("withdrawal")}
-                  </span>
-                </label>
-              </div>
+              <select
+                id="memberId"
+                name="memberId"
+                value={transactionData.memberId}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">{t("selectMember")}</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.firstName} {member.lastName}
+                  </option>
+                ))}
+              </select>
+              {errors.memberId && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                  {errors.memberId}
+                </p>
+              )}
             </div>
 
             <div>
               <label
-                htmlFor="amount"
+                htmlFor="stId"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
-                {t("amount")} *
+                {t("savingType")} *
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <span className="text-gray-500 dark:text-gray-400">$</span>
-                </div>
-                <input
-                  type="number"
-                  id="amount"
-                  name="amount"
-                  value={transactionData.amount}
-                  onChange={handleInputChange}
-                  min="1"
-                  step="1"
-                  className="w-full pl-8 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="0"
-                />
-              </div>
-              {errors.amount && (
+              <select
+                id="stId"
+                name="stId"
+                value={transactionData.stId}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">{t("selectSavingType")}</option>
+                {savingTypes.map((type: any) => (
+                  <option key={type.value} value={type.value}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+              {errors.stId && (
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                  {errors.amount}
+                  {errors.stId}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="numberOfShares"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                {t("numberOfShares")} *
+              </label>
+              <input
+                type="number"
+                id="numberOfShares"
+                name="numberOfShares"
+                value={transactionData.numberOfShares}
+                onChange={handleInputChange}
+                min="1"
+                step="1"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="0"
+              />
+              {errors.numberOfShares && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                  {errors.numberOfShares}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="shareValue"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                {t("shareValue")} *
+              </label>
+              <input
+                type="number"
+                id="shareValue"
+                name="shareValue"
+                value={transactionData.shareValue}
+                onChange={handleInputChange}
+                min="1"
+                step="0.01"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="0"
+              />
+              {errors.shareValue && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                  {errors.shareValue}
                 </p>
               )}
             </div>
@@ -286,15 +366,9 @@ const Savings: React.FC = () => {
             </button>
             <button
               type="submit"
-              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                transactionData.type === "deposit"
-                  ? "bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
-                  : "bg-red-600 hover:bg-red-700 focus:ring-red-500"
-              }`}
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
             >
-              {transactionData.type === "deposit"
-                ? t("recordDeposit")
-                : t("recordWithdrawal")}
+              {t("recordSaving")}
             </button>
           </div>
         </form>
