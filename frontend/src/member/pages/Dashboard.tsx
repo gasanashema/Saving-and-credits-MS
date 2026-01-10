@@ -137,7 +137,9 @@ const Dashboard: React.FC = () => {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   useEffect(() => {
+    console.log('Dashboard inputs:', { loansCount: loans.length, paymentsCount: payments.length, savingsCount: savings.length, profile });
     const processedData = processData({ loans, payments, savings, profile });
+    console.log('Dashboard processedData sample:', processedData.recentActivity.slice(0,3));
     setData(processedData);
   }, [loans, payments, savings, profile]);
 
@@ -240,135 +242,7 @@ const Dashboard: React.FC = () => {
         </motion.div>
       </div>
 
-      {/* Quick Payment */}
-      {activeLoans.length > 0 && (
-        <motion.div variants={item}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
-              <CreditCardIcon className="h-5 w-5 mr-2 text-green-500" />
-              Quick Loan Payment
-            </h3>
-            <form onSubmit={handlePaymentSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Loan</label>
-                  <select
-                    value={paymentForm.loanId}
-                    onChange={(e) => setPaymentForm(prev => ({ ...prev, loanId: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    required
-                  >
-                    <option value="">Choose loan</option>
-                    {activeLoans.map((loan: any) => (
-                      <option key={loan.loanId} value={loan.loanId}>
-                        Loan #{loan.loanId} - {formatCurrency(loan.amountTopay - loan.payedAmount)} remaining
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount (RWF)</label>
-                  <input
-                    type="number"
-                    value={paymentForm.amount}
-                    onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
-                    min="1"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="0"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number</label>
-                  <input
-                    type="tel"
-                    value={paymentForm.phone}
-                    onChange={(e) => setPaymentForm(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="078..."
-                    required
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isProcessingPayment}
-                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 flex items-center"
-                >
-                  {isProcessingPayment ? 'Processing...' : 'Pay Now'}
-                  <CreditCardIcon className="h-4 w-4 ml-2" />
-                </button>
-              </div>
-            </form>
-          </div>
-        </motion.div>
-      )}
 
-      {/* Notifications and Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Notifications */}
-        <motion.div variants={item}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center">
-                <BellIcon className="h-5 w-5 mr-2 text-blue-500" />
-                {t('notifications')}
-                {unreadCount > 0 && (
-                  <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-1">
-                    {unreadCount}
-                  </span>
-                )}
-              </h3>
-              <button
-                onClick={() => navigate('/member/notifications')}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-              >
-                {t('viewAll')}
-              </button>
-            </div>
-            <div className="space-y-3">
-              {notifications.slice(0, 5).map((notification: any) => (
-                <div
-                  key={notification.id}
-                  className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                    !notification.is_read
-                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                      : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
-                  }`}
-                  onClick={() => navigate('/member/notifications')}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium text-gray-800 dark:text-white">
-                        {notification.title}
-                      </h4>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                        {new Date(notification.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {!notification.is_read && (
-                      <span className="bg-blue-500 rounded-full w-2 h-2 flex-shrink-0 mt-1"></span>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {notifications.length === 0 && (
-                <div className="text-center py-8">
-                  <BellIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('noNotifications')}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </motion.div>
-
-      </div>
       <motion.div variants={item}>
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center mb-4">

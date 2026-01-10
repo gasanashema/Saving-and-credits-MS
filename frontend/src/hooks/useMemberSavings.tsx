@@ -28,18 +28,34 @@ export default function useMemberSavings(memberId?: string) {
 
   const fetchMemberSavings = useCallback(async () => {
     if (!targetMemberId) {
-      setError("No member ID available");
+      // member id not yet available (auth still loading) — don't treat as an error
+      console.log('fetchMemberSavings skipped: no member id');
       return;
     }
 
+    console.log('fetchMemberSavings starting for memberId:', targetMemberId);
     setLoading(true);
     setError(null);
 
     try {
       const response = await server.get<MemberSavingsResponse>(`/saving/transactions/${targetMemberId}`);
       const data = response.data;
+      console.log('fetchMemberSavings response:', data);
 
-      setSavings(data.savings || []);
+      // Normalize savings items to consistent shape
+      const normalized = (data.savings || []).map((s: any) => ({
+        sav_id: s.sav_id ?? s.savId ?? s.id ?? null,
+        id: s.sav_id ?? s.savId ?? s.id ?? null,
+        date: s.date,
+        numberOfShares: Number(s.numberOfShares || s.number_of_shares || 0),
+        shareValue: Number(s.shareValue || s.sharevalue || s.share_value || 0),
+        amount: Number(s.amount || (s.numberOfShares && s.shareValue ? s.numberOfShares * s.shareValue : 0) || 0),
+        type: s.type || s.title || s.name || ''
+      }));
+
+      console.log('fetchMemberSavings normalized sample:', normalized[0] || null);
+
+      setSavings(normalized);
       setTotalSavings(data.totalSavings || 0);
     } catch (err) {
       console.error("Failed to fetch member savings:", err);

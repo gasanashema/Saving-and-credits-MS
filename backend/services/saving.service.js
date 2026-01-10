@@ -48,21 +48,62 @@ const addSavig = async (req, res) => {
         // invalid token, use default
       }
     }
+    console.log('addSavig called with body:', req.body);
+    console.log('resolved userId:', userId);
     const memberIdNum = parseInt(memberId);
     const stIdNum = parseInt(stId);
     const numberOfSharesNum = parseFloat(numberOfShares);
     const shareValueNum = parseFloat(shareValue);
-    const [member] = await conn.query(
-      "INSERT INTO `savings`(`date`, `memberId`, `stId`, `numberOfShares`, `shareValue`, `user_id`, `updatedAt`, `createdAt`) VALUES (?,?,?,?,?,?,?,?)",
-      [dateStr, memberIdNum, stIdNum, numberOfSharesNum, shareValueNum, 1, dt, dt]
+
+    // Basic validation (allow memberId or stId to be 0 if present in DB)
+    if (memberIdNum === undefined || memberIdNum === null || isNaN(memberIdNum)) {
+      console.log('Invalid memberId:', memberId);
+      return res.status(400).json({ error: 'Invalid memberId' });
+    }
+
+    if (stIdNum === undefined || stIdNum === null || isNaN(stIdNum)) {
+      console.log('Invalid stId:', stId);
+      return res.status(400).json({ error: 'Invalid saving type (stId)' });
+    }
+
+    if (!numberOfSharesNum || numberOfSharesNum <= 0 || !shareValueNum || shareValueNum <= 0) {
+      console.log('Invalid share values:', numberOfShares, shareValue);
+      return res.status(400).json({ error: 'Invalid numberOfShares or shareValue' });
+    }
+
+    // Ensure member exists
+    const [memberRows] = await conn.query(
+      'SELECT id FROM members WHERE id = ?',
+      [memberIdNum]
     );
+    if (!memberRows || memberRows.length === 0) {
+      console.log('Member not found for id:', memberIdNum);
+      return res.status(400).json({ error: 'Member not found' });
+    }
+
+    // Ensure saving type exists
+    const [typeRows] = await conn.query(
+      'SELECT stId FROM savingtypes WHERE stId = ?',
+      [stIdNum]
+    );
+    if (!typeRows || typeRows.length === 0) {
+      console.log('Saving type not found for stId:', stIdNum);
+      return res.status(400).json({ error: 'Saving type not found' });
+    }
+
+    const [insertResult] = await conn.query(
+      "INSERT INTO `savings`(`date`, `memberId`, `stId`, `numberOfShares`, `shareValue`, `user_id`, `updatedAt`, `createdAt`) VALUES (?,?,?,?,?,?,?,?)",
+      [dateStr, memberIdNum, stIdNum, numberOfSharesNum, shareValueNum, userId, dt, dt]
+    );
+    console.log('savings INSERT result:', insertResult);
     const total = numberOfSharesNum * shareValueNum;
-    await conn.query(
+    const [updateResult] = await conn.query(
       "UPDATE members set balance= balance + ? where id=?",
       [total, memberIdNum]
     );
+    console.log('members UPDATE result:', updateResult);
 
-    return res.json({ status: 201, message: "new saving added", member });
+    return res.json({ status: 201, message: "new saving added", insertResult, updateResult });
   } catch (error) {
     console.log(error);
     return res.status(400).json({ error: error.message });
@@ -90,11 +131,12 @@ const getAllSavings = async (req, res) => {
       }
     }
 
-    let query = "SELECT `id`,`sav_id`, `nid`, `firstName`, `lastName`,telephone,date, sharevalue,`numberOfShares`,sharevalue*numberOfShares as total FROM `members` INNER JOIN savings ON members.id = savings.memberId";
+    let query = "SELECT COALESCE(members.id, members.member_id) AS id, `sav_id`, `nid`, `firstName`, `lastName`, telephone, savings.date, savings.shareValue, `numberOfShares`, (savings.shareValue * savings.numberOfShares) as total FROM `members` INNER JOIN savings ON (members.id = savings.memberId OR members.member_id = savings.memberId)";
     const params = [Number(actualLimit)];
 
     if (memberId) {
-      query += " WHERE members.id = ?";
+      query += " WHERE (members.id = ? OR members.member_id = ?)";
+      params.unshift(memberId);
       params.unshift(memberId);
     }
     
@@ -111,7 +153,7 @@ const getSavings = async (req, res) => {
 
   try {
     const [users] = await conn.query(
-      "SELECT `id`,`sav_id`, `nid`, `firstName`, `lastName`, sharevalue,`numberOfShares`,sharevalue*numberOfShares as total FROM `members` LEFT JOIN savings ON members.id = savings.memberId AND savings.date=?",
+      "SELECT COALESCE(members.id, members.member_id) AS id, `sav_id`, `nid`, `firstName`, `lastName`, savings.shareValue, `numberOfShares`, (savings.shareValue*`numberOfShares`) as total FROM `members` LEFT JOIN savings ON (members.id = savings.memberId OR members.member_id = savings.memberId) AND savings.date=?",
       [date]
     );
     return res.json(users);
@@ -147,11 +189,13 @@ const getSavingSelectList = async (req, res) => {
 const getMemberSavings = async (req, res) => {
   try {
     const {memberId} = req.params;
+    console.log('getMemberSavings called for memberId:', memberId);
     
     const [savings] = await conn.query(
       "SELECT s.sav_id, s.date, s.numberOfShares, s.shareValue, (s.numberOfShares * s.shareValue) as amount, st.title as type FROM savings s INNER JOIN savingtypes st ON s.stId = st.stId WHERE s.memberId = ? ORDER BY s.date DESC",
       [memberId]
     );
+    console.log('getMemberSavings result count:', savings.length, 'sample:', savings[0] || null);
     
     const totalSavings = savings.reduce((sum, saving) => sum + Number(saving.amount), 0);
     
@@ -161,6 +205,7 @@ const getMemberSavings = async (req, res) => {
       count: savings.length
     });
   } catch (error) {
+    console.log('getMemberSavings error:', error.message);
     res.status(400).json({ error: error.message });
   }
 };

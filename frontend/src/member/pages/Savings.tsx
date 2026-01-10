@@ -32,6 +32,11 @@ const Savings: React.FC = () => {
 
   const { savings, totalSavings, loading, error, refresh } = useMemberSavings();
 
+  // Debug: log when savings change
+  React.useEffect(() => {
+    console.log('Savings state updated (member page):', { count: savings.length, totalSavings, savingsSample: savings[0] || null });
+  }, [savings, totalSavings]);
+
   useEffect(() => {
     if (isModalOpen) {
       const fetchSavingTypes = async () => {
@@ -73,12 +78,32 @@ const Savings: React.FC = () => {
     setModalError('');
 
     try {
-      await server.post('/saving', {
-        memberId: parseInt(user.id),
-        stId: parseInt(formData.stId),
+      console.log('Current user object:', user);
+      const memberIdNum = parseInt(user?.id as unknown as string);
+      const stIdNum = parseInt(formData.stId);
+
+      // Validate member and stId explicitly (allow 0 as a valid id when DB uses 0)
+      if (memberIdNum === null || memberIdNum === undefined || isNaN(memberIdNum)) {
+        setModalError('Invalid member ID. Please re-login and try again.');
+        setModalLoading(false);
+        return;
+      }
+
+      if (stIdNum === null || stIdNum === undefined || isNaN(stIdNum)) {
+        setModalError('Please select a valid saving type.');
+        setModalLoading(false);
+        return;
+      }
+
+      const payload = {
+        memberId: memberIdNum,
+        stId: stIdNum,
         numberOfShares: shares,
         shareValue: value
-      });
+      };
+      console.log('Saving payload:', payload);
+      const response = await server.post('/saving', payload);
+      console.log('Save response data:', response.data);
 
       setIsModalOpen(false);
       setFormData({

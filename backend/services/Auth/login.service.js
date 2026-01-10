@@ -53,12 +53,32 @@ const Auth = async (req, res) => {
       userRole = role === "admin" ? "admin" : "member";
     }
 
-    // For id/fullname selection, treat super-admin as an admin-type user
-    const isAdminType = userRole === "admin" || userRole === "sadmin";
-    const id = isAdminType ? user.user_id : user.id;
-    const fullname = isAdminType
-      ? user.fullname
-      : `${user.firstName || ""} ${user.lastName || ""}`.trim();
+    // Debug: show what columns we got from DB
+    console.log('Authenticated user record from DB (keys):', Object.keys(user));
+    console.log('Authenticated user record from DB (full):', user);
+
+    // Determine id robustly from any possible column (user_id, id, member_id)
+    let id = user.user_id ?? user.id ?? user.member_id ?? null;
+
+    // If the id is missing for a member record, try an explicit lookup as a fallback
+    if ((id === null || id === undefined) && role === 'member') {
+      try {
+        const [idRows] = await conn.query('SELECT id, member_id FROM members WHERE telephone = ? LIMIT 1', [username]);
+        if (idRows && idRows[0]) {
+          id = idRows[0].id ?? idRows[0].member_id ?? id;
+          console.log('Fallback member id lookup result:', idRows[0]);
+        } else {
+          console.log('Fallback member id lookup found no rows for telephone:', username);
+        }
+      } catch (err) {
+        console.log('Error during fallback id lookup for member:', err.message);
+      }
+    }
+
+    // Determine fullname from available fields
+    const fullname = user.fullname || `${user.firstName || ""} ${user.lastName || ""}`.trim();
+
+    console.log('Resolved id for token/payload:', id);
 
     const token = jwt.sign({ id, role: userRole }, process.env.JWT_SECRET, {
       expiresIn: "1d",
@@ -74,7 +94,9 @@ const Auth = async (req, res) => {
     // Provide a route-friendly role for the frontend while keeping canonical role in the token
     const responseRole = userRole === "sadmin" ? "super-admin" : userRole;
 
-    // Build response object and log it for verification
+    // Ensure a canonical numeric id and include a user object in the response
+    const parsedId = Number(id);
+    const canonicalId = Number.isFinite(parsedId) ? parsedId : null;
     const responseObj = {
       login: true,
       role: responseRole,
@@ -82,7 +104,13 @@ const Auth = async (req, res) => {
       token,
       email: user.email || null,
       fullname,
-      id,
+      id: canonicalId,
+      user: {
+        id: canonicalId,
+        fullname,
+        email: user.email || null,
+        role: responseRole,
+      },
     };
 
     console.log("Login response to frontend:", responseObj);
