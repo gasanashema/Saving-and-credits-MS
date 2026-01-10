@@ -27,5 +27,5 @@ export default function useSavings(limit: number) {
 
   }, [getMemberSavings,limit]);
 
-  return { savings, loading, error, refresh: useSavings };
+  return { savings, loading, error, refresh: getMemberSavings };
 }

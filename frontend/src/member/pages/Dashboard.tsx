@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
 import StatsCard from '../../components/ui/StatsCard';
 import ChartCard from '../../components/ui/ChartCard';
-import { UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ClockIcon, CurrencyDollarIcon, BellIcon } from '@heroicons/react/24/outline';
+import { UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ClockIcon, CurrencyDollarIcon, BellIcon, CreditCardIcon } from '@heroicons/react/24/outline';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -10,9 +10,12 @@ import useMemberLoans from '../../hooks/useMemberLoans';
 import useMemberPaymentHistory from '../../hooks/useMemberPaymentHistory';
 import useMemberSavings from '../../hooks/useMemberSavings';
 import useMemberNotifications from '../../hooks/useMemberNotifications';
+import useMemberProfile from '../../hooks/useMemberProfile';
+import { toast } from 'sonner';
+import server from '../../utils/server';
 
 const processData = (rawData: any) => {
-  const { loans, payments, savings } = rawData;
+  const { loans, payments, savings, profile } = rawData;
 
   // Process payment history over months
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -49,7 +52,8 @@ const processData = (rawData: any) => {
 
   // Calculate totals
   const totalLoans = loans.length;
-  const totalSavings = savings.reduce((sum: number, s: any) => sum + (s.amount || 0), 0);
+  // Use the member's actual balance from profile instead of calculating from transactions
+  const totalSavings = profile?.balance || 0;
   const activeLoans = loanStatusCounts.active;
   const pendingRepayments = loanStatusCounts.active; // Active loans need repayment
 
@@ -115,10 +119,11 @@ const processData = (rawData: any) => {
 const Dashboard: React.FC = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const { loans } = useMemberLoans();
-  const { payments } = useMemberPaymentHistory();
+  const { loans, refresh: refreshLoans } = useMemberLoans();
+  const { payments, refresh: refreshPayments } = useMemberPaymentHistory();
   const { savings } = useMemberSavings();
   const { notifications, unreadCount } = useMemberNotifications();
+  const { profile } = useMemberProfile();
   const [data, setData] = useState<any>({
     stats: { totalLoans: 0, totalSavings: 0, activeLoans: 0, pendingRepayments: 0 },
     savingsData: [],
@@ -126,12 +131,18 @@ const Dashboard: React.FC = () => {
     repaymentPerformance: [],
     recentActivity: []
   });
+  const [paymentForm, setPaymentForm] = useState({
+    loanId: '',
+    amount: '',
+    phone: ''
+  });
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   useEffect(() => {
-    const processedData = processData({ loans, payments, savings });
+    const processedData = processData({ loans, payments, savings, profile });
     setData(processedData);
-  }, [loans, payments, savings]);
+  }, [loans, payments, savings, profile]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -141,6 +152,43 @@ const Dashboard: React.FC = () => {
       maximumFractionDigits: 0
     }).format(value);
   };
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentForm.loanId || !paymentForm.amount || !paymentForm.phone) {
+      toast.error('Please fill all fields');
+      return;
+    }
+
+    const amount = Number(paymentForm.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Invalid amount');
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    try {
+      await server.put('/loans/pay', {
+        loanId: paymentForm.loanId,
+        amount,
+        phone: paymentForm.phone
+      });
+
+      setPaymentForm({ loanId: '', amount: '', phone: '' });
+      toast.success('Payment successful!');
+      refreshLoans();
+      refreshPayments();
+      // Refresh the page to update stats
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Payment failed');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const activeLoans = loans.filter((l: any) => l.lstatus === 'active' || l.status === 'active');
   const container = {
     hidden: {
       opacity: 0
@@ -163,13 +211,21 @@ const Dashboard: React.FC = () => {
     }
   };
   return <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-          {t('dashboard')}
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400">
-          {t('dashboardOverview')}
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+            {t('dashboard')}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            {t('dashboardOverview')}
+          </p>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+        >
+          Refresh
+        </button>
       </div>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -186,6 +242,71 @@ const Dashboard: React.FC = () => {
           <StatsCard title={t('pendingRepayments')} value={data.stats.pendingRepayments.toString()} icon={<ArrowDownCircleIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-purple-500" />
         </motion.div>
       </div>
+
+      {/* Quick Payment */}
+      {activeLoans.length > 0 && (
+        <motion.div variants={item}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
+              <CreditCardIcon className="h-5 w-5 mr-2 text-green-500" />
+              Quick Loan Payment
+            </h3>
+            <form onSubmit={handlePaymentSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Loan</label>
+                  <select
+                    value={paymentForm.loanId}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, loanId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  >
+                    <option value="">Choose loan</option>
+                    {activeLoans.map((loan: any) => (
+                      <option key={loan.loanId} value={loan.loanId}>
+                        Loan #{loan.loanId} - {formatCurrency(loan.amountTopay - loan.payedAmount)} remaining
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount (RWF)</label>
+                  <input
+                    type="number"
+                    value={paymentForm.amount}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
+                    min="1"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="0"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={paymentForm.phone}
+                    onChange={(e) => setPaymentForm(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="078..."
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={isProcessingPayment}
+                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 flex items-center"
+                >
+                  {isProcessingPayment ? 'Processing...' : 'Pay Now'}
+                  <CreditCardIcon className="h-4 w-4 ml-2" />
+                </button>
+              </div>
+            </form>
+          </div>
+        </motion.div>
+      )}
 
       {/* Notifications and Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

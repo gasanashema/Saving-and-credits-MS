@@ -17,26 +17,28 @@ interface MemberSavingsResponse {
   count: number;
 }
 
-export default function useMemberSavings() {
+export default function useMemberSavings(memberId?: string) {
   const { user } = useAuth();
   const [savings, setSavings] = useState<MemberSaving[]>([]);
   const [totalSavings, setTotalSavings] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const targetMemberId = memberId || user?.id;
+
   const fetchMemberSavings = useCallback(async () => {
-    if (!user) {
-      setError("User not authenticated");
+    if (!targetMemberId) {
+      setError("No member ID available");
       return;
     }
 
     setLoading(true);
     setError(null);
-    
+
     try {
-      const response = await server.get<MemberSavingsResponse>(`/saving/transactions/${user.id}`);
+      const response = await server.get<MemberSavingsResponse>(`/saving/transactions/${targetMemberId}`);
       const data = response.data;
-      
+
       setSavings(data.savings || []);
       setTotalSavings(data.totalSavings || 0);
     } catch (err) {
@@ -47,13 +49,13 @@ export default function useMemberSavings() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [targetMemberId]);
 
   useEffect(() => {
-    if (user) {
+    if (targetMemberId) {
       fetchMemberSavings();
     }
-  }, [fetchMemberSavings, user]);
+  }, [fetchMemberSavings, targetMemberId]);
 
   return { 
     savings, 

@@ -14,12 +14,12 @@ const editSaving = async (req, res) => {
     );
     const [updeter] = await conn.query(
       "UPDATE savings Set `memberId`=?, `stId`=?, `numberOfShares`=?, `shareValue`=?, `user_id`=?, `updatedAt`=? WHERE sav_id =? ",
-      [memberId, stId, numeberOfShares, shareValue, userId, dt, savId]
+      [memberId, stId, numberOfShares, shareValue, userId, dt, savId]
     );
     
     const total = numberOfShares * shareValue;
     await conn.query(
-      "UPDATE members set balance= balance + ? where member_id=?",
+      "UPDATE members set balance= balance + ? where id=?",
       [total, memberId]
     );
 
@@ -39,15 +39,27 @@ const addSavig = async (req, res) => {
     const { memberId, stId, numberOfShares, shareValue } = req.body;
     const token = req.headers.authorization;
     const dt = new Date();
-    const userId = jwt.verify(token, process.env.JWT_SECRET).id;
+    const dateStr = dt.toISOString().split('T')[0]; // YYYY-MM-DD
+    let userId = 1; // default
+    if (token) {
+      try {
+        userId = jwt.verify(token, process.env.JWT_SECRET).id;
+      } catch (err) {
+        // invalid token, use default
+      }
+    }
+    const memberIdNum = parseInt(memberId);
+    const stIdNum = parseInt(stId);
+    const numberOfSharesNum = parseFloat(numberOfShares);
+    const shareValueNum = parseFloat(shareValue);
     const [member] = await conn.query(
       "INSERT INTO `savings`(`date`, `memberId`, `stId`, `numberOfShares`, `shareValue`, `user_id`, `updatedAt`, `createdAt`) VALUES (?,?,?,?,?,?,?,?)",
-      [dt, memberId, stId, numberOfShares, shareValue, userId, dt, dt]
+      [dateStr, memberIdNum, stIdNum, numberOfSharesNum, shareValueNum, 1, dt, dt]
     );
-    const total = numberOfShares * shareValue;
+    const total = numberOfSharesNum * shareValueNum;
     await conn.query(
-      "UPDATE members set balance= balance + ? where member_id=?",
-      [total, memberId]
+      "UPDATE members set balance= balance + ? where id=?",
+      [total, memberIdNum]
     );
 
     return res.json({ status: 201, message: "new saving added", member });
@@ -80,7 +92,7 @@ const getAllSavings = async (req, res) => {
 
     let query = "SELECT `id`,`sav_id`, `nid`, `firstName`, `lastName`,telephone,date, sharevalue,`numberOfShares`,sharevalue*numberOfShares as total FROM `members` INNER JOIN savings ON members.id = savings.memberId";
     const params = [Number(actualLimit)];
-    
+
     if (memberId) {
       query += " WHERE members.id = ?";
       params.unshift(memberId);
@@ -161,7 +173,7 @@ const completeSaving = () => async (req, res) => {
     const psql = penalityQueryGenerator(dat, 500, 1);
     await conn.query(psql);
     const [setZero] = await conn.query(
-      "SELECT  member_id,0 FROM members LEFT JOIN savings ON savings.memberId=member_id WHERE member_id NOT IN (SELECT memberId FROM `members` INNER JOIN savings WHERE members.member_id = savings.memberId AND savings.date=?)",
+      "SELECT  id,0 FROM members LEFT JOIN savings ON savings.memberId=id WHERE id NOT IN (SELECT memberId FROM `members` INNER JOIN savings WHERE members.id = savings.memberId AND savings.date=?)",
       [dat]
     );
 

@@ -101,9 +101,9 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-RW', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'RWF',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value);
@@ -132,13 +132,21 @@ const Dashboard: React.FC = () => {
     }
   };
   return <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-          {t('dashboard')}
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400">
-          {t('dashboardOverview')}
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+            {t('dashboard')}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            {t('dashboardOverview')}
+          </p>
+        </div>
+        <button
+          onClick={() => loadData()}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+        >
+          Refresh
+        </button>
       </div>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
