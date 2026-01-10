@@ -365,10 +365,18 @@ const Loans: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t('loans')}</h1>
           <p className="text-gray-500 dark:text-gray-400">{t('manageLoansDescription')}</p>
         </div>
-        <button onClick={() => setIsAddModalOpen(true)} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg flex items-center">
-          <PlusIcon className="h-5 w-5 mr-2" />
-          {t('applyForLoan')}
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => refresh()}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            Refresh
+          </button>
+          <button onClick={() => setIsAddModalOpen(true)} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg flex items-center">
+            <PlusIcon className="h-5 w-5 mr-2" />
+            {t('applyForLoan')}
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

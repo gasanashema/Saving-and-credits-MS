@@ -190,7 +190,7 @@ INSERT INTO `ptypes` (`ptId`, `title`, `amount`, `description`) VALUES
 --
 
 CREATE TABLE `savings` (
-  `sav_id` int(11) NOT NULL,
+  `sav_id` int(11) NOT NULL AUTO_INCREMENT,
   `date` date NOT NULL DEFAULT current_timestamp(),
   `memberId` int(11) NOT NULL,
   `stId` int(11) NOT NULL,
@@ -198,7 +198,11 @@ CREATE TABLE `savings` (
   `shareValue` decimal(12,0) NOT NULL DEFAULT 0,
   `user_id` int(11) NOT NULL DEFAULT 1,
   `updatedAt` timestamp NOT NULL DEFAULT current_timestamp(),
-  `createdAt` datetime NOT NULL DEFAULT current_timestamp()
+  `createdAt` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`sav_id`),
+  CONSTRAINT `savings_member_fk` FOREIGN KEY (`memberId`) REFERENCES `members` (`member_id`) ON DELETE CASCADE,
+  CONSTRAINT `savings_type_fk` FOREIGN KEY (`stId`) REFERENCES `savingtypes` (`stId`),
+  CONSTRAINT `savings_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --

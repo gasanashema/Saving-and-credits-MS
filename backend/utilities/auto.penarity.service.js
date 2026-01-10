@@ -11,7 +11,7 @@ const AutoPenalityService = async () => {
     const sql = penalityQueryGenerator(yesterdayFormarted, 500, 1);
     await conn.query(sql);
     const [setZero] = await conn.query(
-      "INSERT INTO savings(date,stId,memberId) SELECT ?, 0, member_id FROM members LEFT JOIN savings ON savings.memberId=member_id WHERE member_id NOT IN (SELECT memberId FROM `members` INNER JOIN savings WHERE members.member_id = savings.memberId AND savings.date=?)",
+      "INSERT INTO savings(date,stId,memberId) SELECT ?, 0, id FROM members LEFT JOIN savings ON savings.memberId=id WHERE id NOT IN (SELECT memberId FROM `members` INNER JOIN savings WHERE members.id = savings.memberId AND savings.date=?)",
       [yesterdayFormarted, yesterdayFormarted]
     );
     await conn.query(sql);

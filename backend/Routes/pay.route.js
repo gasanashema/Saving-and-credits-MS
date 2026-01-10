@@ -199,7 +199,7 @@ PayRouter.put("/saving/:id/confirm", async (req, res) => {
 
     // Update member balance
     const [updateMemberBalance] = await conn.query(
-      "UPDATE members SET balance = balance + ? WHERE member_id = ?",
+      "UPDATE members SET balance = balance + ? WHERE id = ?",
       [amount, member_id]
     );
 

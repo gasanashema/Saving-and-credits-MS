@@ -10,12 +10,14 @@ const {
   updateMember,
   getDashboard,
   getOneMemberSavings,
-  resetPassword
+  resetPassword,
+  getMemberProfile
 } = require("../services/members.service");
 membersRouter.get("/", getAllMembers);
 membersRouter.get("/saving/:start/:end", savingGetAllMembers);
 membersRouter.get("/:id/savings/:limit", getOneMemberSavings);
 membersRouter.get("/selectlist", getSelectList);
+membersRouter.get("/profile", getMemberProfile);
 membersRouter.put("/dashboard/:id/data", getDashboard);
 membersRouter.get("/total", getTotal);
 membersRouter.post("/", addMember);

@@ -5,18 +5,26 @@ const { createNotification } = require('../utilities/notify.helper');
 
 const addLoan = async (req, res) => {
   try {
-    const { amount, duration, re, rate, amountTopay } = req.body;
+    const { amount, duration, re, rate, amountTopay, memberId: bodyMemberId } = req.body;
     const authHeader = req.headers.authorization;
-    let memberId = 1; // default
+    let memberId = bodyMemberId ? parseInt(bodyMemberId) : 1; // default
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      memberId = jwt.verify(token, process.env.JWT_SECRET).id;
+    if (!bodyMemberId && authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        memberId = jwt.verify(token, process.env.JWT_SECRET).id;
+      } catch (err) {
+        // invalid token, use default
+      }
     }
     const dt = new Date();
+    const amountNum = parseFloat(amount);
+    const durationNum = parseInt(duration);
+    const rateNum = parseFloat(rate);
+    const amountTopayNum = parseFloat(amountTopay);
     const [loan] = await conn.query(
       "INSERT INTO `loan`(`requestDate`, `re`, `amount`, `duration`,`memberId`, `amountTopay`,`rate`) VALUES (?,?,?,?,?,?,?)",
-      [dt, re, amount, duration, memberId, amountTopay, rate]
+      [dt, re, amountNum, durationNum, memberId, amountTopayNum, rateNum]
     );
 
     // Notify all admins about new loan application
@@ -126,7 +134,7 @@ const getAllLoans = async (req, res) => {
   const { status, start, end } = req.params;
   try {
     const [loans] = await conn.query(
-      "SELECT `loanId`, `requestDate`, `re`, `amount`, `rate`, `duration`, `applovedDate`, `apploverId`, `memberId`, `amountTopay`, `payedAmount`, loan.status lstatus,`member_id`, `nid`, `firstName`, `lastName` FROM `loan` INNER JOIN members WHERE member_id=memberId AND loan.status = ? LIMIT ?, ?",
+      "SELECT `loanId`, `requestDate`, `re`, `amount`, `rate`, `duration`, `applovedDate`, `apploverId`, `memberId`, `amountTopay`, `payedAmount`, loan.status lstatus, members.id as member_id, `nid`, `firstName`, `lastName` FROM `loan` INNER JOIN members ON members.id = loan.memberId WHERE loan.status = ? LIMIT ?, ?",
       [status, Number(start), Number(end)]
     );
     return res.json(loans);

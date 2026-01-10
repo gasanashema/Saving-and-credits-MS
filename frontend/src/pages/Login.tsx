@@ -60,18 +60,29 @@ const Login: React.FC = () => {
         throw new Error(response.error || "Invalid credentials");
       }
 
-      const { token, role, id, fullname, email } = response;
+      // Be resilient: id may be top-level or inside response.user
+      const token = response.token;
+      const role = response.role;
+      // Use nullish coalescing to preserve numeric 0 ids
+      const responseId = (response.id ?? response.user?.id) ?? null;
+      const fullname = response.fullname ?? response.user?.fullname ?? '';
+      const email = response.email ?? response.user?.email ?? null;
 
-      console.log(response);
+      console.log('Parsed login response:', { token, role, responseId, fullname, email });
+
+      // Debug: store check logged after saving to localStorage
+
+
       // Normalize the role for internal use (backend returns route-friendly 'super-admin' for super users)
       const responseRole = String(role || "member").toLowerCase();
       const storedRole = responseRole === "super-admin" ? "sadmin" : responseRole;
 
       // 🧠 Store user info and token separately (store canonical short role)
-      const userData = { id, fullname, email, role: storedRole, token };
+      const userData = { id: responseId, fullname, email, role: storedRole, token };
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("token", token); // Store token separately for axios interceptor
-      window.dispatchEvent(new Event("storage")); 
+      window.dispatchEvent(new Event("storage"));
+      console.log('Saved user to localStorage:', JSON.parse(localStorage.getItem('user') || 'null'));
 
       // ✅ Navigate based on canonical role
       let page = "/";
