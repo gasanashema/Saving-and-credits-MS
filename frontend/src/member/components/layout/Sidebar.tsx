@@ -92,9 +92,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
             {t('contactSupport')}
           </p>
-          <button onClick={() => navigate('chat')} className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+          <button onClick={() => navigate('help-center')} className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-center">
             {t('supportCenter')}
-            {unreadChats > 0 && <span className="bg-indigo-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{unreadChats}</span>}
           </button>
         </div>
       </div>

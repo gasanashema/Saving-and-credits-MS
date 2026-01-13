@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useLanguage } from "../../context/LanguageContext";
 import { MagnifyingGlassIcon, PlusIcon } from "@heroicons/react/24/outline";
 import useMemberSavings from "../../hooks/useMemberSavings";
+import useMemberProfile from "../../hooks/useMemberProfile";
 import Modal from "../components/ui/Modal";
 import server from "../../utils/server";
 import { useAuth } from "../../context/AuthContext";
@@ -31,6 +32,7 @@ const Savings: React.FC = () => {
   const [totalAmount, setTotalAmount] = useState(0);
 
   const { savings, totalSavings, loading, error, refresh } = useMemberSavings();
+  const { profile } = useMemberProfile();
 
   // Debug: log when savings change
   React.useEffect(() => {
@@ -50,6 +52,13 @@ const Savings: React.FC = () => {
       fetchSavingTypes();
     }
   }, [isModalOpen]);
+
+  // Auto-fill phone number when profile is available
+  useEffect(() => {
+    if (profile?.telephone && isModalOpen && !formData.phoneNumber) {
+      setFormData(prev => ({ ...prev, phoneNumber: profile.telephone }));
+    }
+  }, [profile, isModalOpen, formData.phoneNumber]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -65,6 +65,10 @@ const navs = {
       path: "/umunyamuryango/inguzanyo",
     },
     {
+      text: "help",
+      path: "/umunyamuryango/help",
+    },
+    {
       text: "gusohoka",
       path: "/sohoka",
     },

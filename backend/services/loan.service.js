@@ -1,7 +1,7 @@
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const conn = require("../db/connection");
-const { createNotification } = require('../utilities/notify.helper');
+const { createEventNotification } = require('../utilities/notify.helper');
 
 const addLoan = async (req, res) => {
   try {
@@ -29,11 +29,7 @@ const addLoan = async (req, res) => {
 
     // Notify all admins about new loan application
     try {
-      const [admins] = await conn.query("SELECT user_id FROM users WHERE role IN ('admin','supperadmin','sadmin')");
-      const title = 'New loan application';
-      const message = `Member ${memberId} submitted a loan application of ${amount}`;
-      const url = `/admin/loans/${loan.insertId}`;
-      await Promise.all(admins.map(a => createNotification({ senderAdminId: 0, receiverType: 'admin', receiverId: a.user_id, title, message, url })));
+      await createEventNotification({ type: 'loan_applied', loanId: loan.insertId });
     } catch (e) {
       console.error('Failed to create admin notifications for loan application', e);
     }
@@ -57,21 +53,42 @@ const loanAction = async (req, res) => {
     }
     const dt = new Date();
 
-    if (action === 'cancel') {
-      // For cancel, check if member owns the loan
-      const [loanCheck] = await conn.query(
-        "SELECT memberId FROM `loan` WHERE loanId=?",
-        [loanId]
-      );
-      if (loanCheck.length === 0 || loanCheck[0].memberId !== userId.id) {
-        return res.status(403).json({ error: "Unauthorized to cancel this loan" });
-      }
-      const [result] = await conn.query(
-        "UPDATE `loan` SET status='rejected' WHERE loanId=? AND status='pending'",
-        [loanId]
-      );
-      return res.json({ data: result, message: "Loan cancelled successfully" });
-    } else {
+      if (action === 'delete') {
+         // Delete cancelled loan
+         const [loanCheck] = await conn.query(
+          "SELECT memberId, status FROM `loan` WHERE loanId=?",
+          [loanId]
+        );
+        if (loanCheck.length === 0 || loanCheck[0].memberId !== userId.id) {
+          return res.status(403).json({ error: "Unauthorized to delete this loan" });
+        }
+        if (loanCheck[0].status !== 'cancelled') {
+           return res.status(400).json({ error: "Only cancelled loans can be deleted" });
+        }
+         const [result] = await conn.query(
+           "DELETE FROM `loan` WHERE loanId=?",
+           [loanId]
+         );
+         return res.json({ data: result, message: "Loan deleted successfully" });
+      } else if (action === 'cancel') {
+        const [loanCheck] = await conn.query(
+          "SELECT memberId, status FROM `loan` WHERE loanId=?",
+          [loanId]
+        );
+        if (loanCheck.length === 0 || loanCheck[0].memberId !== userId.id) {
+          return res.status(403).json({ error: "Unauthorized to cancel this loan" });
+        }
+        // Only pending loans can be cancelled
+        if (loanCheck[0].status !== 'pending') {
+             return res.status(400).json({ error: "Only pending loans can be cancelled" });
+        }
+        
+        const [result] = await conn.query(
+          "UPDATE `loan` SET status='cancelled' WHERE loanId=?",
+          [loanId]
+        );
+        return res.json({ data: result, message: "Loan cancelled successfully" });
+      } else {
       // For approve/reject, admin action
       const approverId = userId.id;
       const [result] = await conn.query(
@@ -81,21 +98,10 @@ const loanAction = async (req, res) => {
 
       // Notify member about status change
       try {
-        const [loanRow] = await conn.query('SELECT memberId FROM loan WHERE loanId = ?', [loanId]);
-        if (loanRow && loanRow.length > 0) {
-          const memberIdToNotify = loanRow[0].memberId;
-          let title = 'Loan status updated';
-          let message = `Your loan #${loanId} status changed to ${action}`;
-          let url = `/member/loans/${loanId}`;
-          // When approved make it clearer
-          if (action === 'active') {
-            title = 'Loan approved';
-            message = `Your loan #${loanId} has been approved`;
-          } else if (action === 'rejected') {
-            title = 'Loan rejected';
-            message = `Your loan #${loanId} has been rejected`;
-          }
-          await createNotification({ senderAdminId: approverId, receiverType: 'member', receiverId: memberIdToNotify, title, message, url });
+        if (action === 'active') {
+          await createEventNotification({ type: 'loan_approved', loanId, senderAdminId: approverId });
+        } else if (action === 'rejected') {
+          await createEventNotification({ type: 'loan_rejected', loanId, senderAdminId: approverId });
         }
       } catch (e) {
         console.error('Failed to create notification for loan action', e);
@@ -148,16 +154,20 @@ const payLoan = async (req, res) => {
     const authHeader = req.headers.authorization;
     const dt = new Date();
     let userId = 1; // default
+    let recorderID = 1; // default admin
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      userId = jwt.verify(token, process.env.JWT_SECRET).id;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      userId = decoded.id;
+      // If the user is a member, recorderID is admin 1; if admin, use their userId
+      recorderID = decoded.role === 'member' ? 1 : userId;
     }
 
     // Insert the payment
     const payment = await conn.query(
       "INSERT INTO `loanpayment`(`loanId`, `amount`, `recorderID`) VALUES(?,?,?)",
-      [loanId, amount, userId]
+      [loanId, amount, recorderID]
     );
 
     // Sum all payments for this loan
@@ -182,6 +192,13 @@ const payLoan = async (req, res) => {
       "UPDATE `loan` SET `payedAmount`=?,`status`=? WHERE `loanId`=?",
       [totalPaid, newStatus, loanId]
     );
+
+    // Notify member about payment recorded
+    try {
+      await createEventNotification({ type: 'payment_received', loanId, senderAdminId: recorderID });
+    } catch (e) {
+      console.error('Failed to create payment notification', e);
+    }
 
     return res.json({ status: 201, message: "pay successfully", payment, totalPaid, newStatus });
   } catch (error) {
@@ -385,6 +402,20 @@ const getMemberPaymentHistory = async (req, res) => {
   }
 };
 
+const getLoanById = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [loans] = await conn.query(
+      "SELECT `loanId`, `requestDate`, `re`, `amount`, `rate`, `duration`, `applovedDate`, `apploverId`, `memberId`, `amountTopay`, `payedAmount`, loan.status as lstatus, members.id as member_id, `nid`, `firstName`, `lastName` FROM `loan` INNER JOIN members ON members.id = loan.memberId WHERE loan.loanId = ?",
+      [parseInt(id)]
+    );
+    if (loans.length === 0) return res.status(404).json({ message: "Loan not found" });
+    return res.json(loans[0]);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 module.exports = {
   addLoan,
   getTotal,
@@ -397,4 +428,5 @@ module.exports = {
   getLoanPaymentDetails,
   getAllLoanPayments,
   getMemberPaymentHistory,
+  getLoanById,
 };

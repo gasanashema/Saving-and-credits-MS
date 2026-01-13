@@ -69,30 +69,42 @@ const getSelectList = async (req, res) => {
 
 const resetPassword = async (req, res) => {
   const { id } = req.params;
-  
+
   try {
     // Reset to default password "12345" with the provided hash
     const defaultPasswordHash = '$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK';
-    
+
     const [result] = await conn.query(
       "UPDATE users SET password = ? WHERE user_id = ?",
       [defaultPasswordHash, id]
     );
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "User not found" });
     }
-    
+
     return res.json({ status: 200, message: "Password reset successfully" });
   } catch (error) {
     return res.status(400).json({ error: error.message });
+  }
+};
+
+const getAdminContacts = async (req, res) => {
+  try {
+    const [admins] = await conn.query(
+      "SELECT user_id, fullname, telephone, email FROM users WHERE role IN ('admin', 'sadmin', 'supperadmin') AND status = 'active'"
+    );
+    return res.json(admins);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 };
 module.exports = {
   getAllUsers,
   addUser,
   getSelectList,
-  dashBoard, 
+  dashBoard,
   updateStatus,
-  resetPassword
+  resetPassword,
+  getAdminContacts
 };

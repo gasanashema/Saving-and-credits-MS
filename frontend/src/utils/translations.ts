@@ -54,7 +54,7 @@ export const translations = {
     repaymentProgress: 'Repayment Progress',
     pending: 'Pending',
     approved: 'Approved',
-    rejected: 'Cancelled',
+    rejected: 'Rejected',
     applyForLoan: 'Apply for Loan',
     requestLoan: 'Request Loan',
     loanPurpose: 'Loan Purpose',

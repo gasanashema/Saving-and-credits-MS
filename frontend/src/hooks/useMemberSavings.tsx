@@ -24,10 +24,10 @@ export default function useMemberSavings(memberId?: string) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const targetMemberId = memberId || user?.id;
+  const targetMemberId = memberId ? parseInt(memberId) : (user?.id ? parseInt(user.id) : null);
 
   const fetchMemberSavings = useCallback(async () => {
-    if (!targetMemberId) {
+    if (!targetMemberId && targetMemberId !== 0) {
       // member id not yet available (auth still loading) — don't treat as an error
       console.log('fetchMemberSavings skipped: no member id');
       return;
@@ -38,7 +38,7 @@ export default function useMemberSavings(memberId?: string) {
     setError(null);
 
     try {
-      const response = await server.get<MemberSavingsResponse>(`/saving/transactions/${targetMemberId}`);
+      const response = await server.get<MemberSavingsResponse>(`/saving/transactions/${targetMemberId}?t=${Date.now()}`);
       const data = response.data;
       console.log('fetchMemberSavings response:', data);
 

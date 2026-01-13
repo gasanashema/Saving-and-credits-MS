@@ -12,7 +12,7 @@ import server from '../../utils/server';
 // Add loan purposes for the form
 const loanPurposes = ['business', 'education', 'housing', 'personal', 'emergency', 'agriculture'];
 
-type Tab = 'all' | 'pending' | 'active' | 'paid' | 'rejected';
+type Tab = 'all' | 'pending' | 'active' | 'paid' | 'rejected' | 'cancelled';
 
 interface UiLoan {
   id: number;
@@ -28,7 +28,7 @@ interface UiLoan {
   notes?: string;
 }
 
-const tabs: Tab[] = ['all', 'pending', 'active', 'paid', 'rejected'];
+const tabs: Tab[] = ['all', 'pending', 'active', 'paid', 'rejected', 'cancelled'];
 
 const Loans: React.FC = () => {
   const { t } = useLanguage();
@@ -98,6 +98,7 @@ const Loans: React.FC = () => {
       case 'active': return 'bg-green-600 text-white';
       case 'paid': return 'bg-blue-600 text-white';
       case 'rejected': return 'bg-red-600 text-white';
+      case 'cancelled': return 'bg-gray-500 text-white';
       default: return 'bg-gray-600 text-white';
     }
   };
@@ -105,6 +106,16 @@ const Loans: React.FC = () => {
   // Filtering: tab + search
   const filteredLoans = displayLoans
     .filter(loan => {
+      // Admin sees everything appropriate for the tab. 
+      // If activeTab is 'all', we might want to exclude 'cancelled' if that's the desired default view,
+      // but the user said "And the admin should not be able to see the cancelled loans" in the previous turn,
+      // and THEN said "Add the rejected and the canceled tab on the admin side".
+      // This implies Admin SHOULD see them in the specific tab.
+      // Usually 'all' includes everything. I will leave 'cancelled' in 'all' for admin unless specified otherwise.
+      // Or I can hide it from 'all' but show in 'cancelled'.
+      // Given "hide cancelled loans to admin" was the OLD instruction, and "Add the rejected and cancelled tab" is the NEW instruction,
+      // I will assume visibility is desired.
+
       if (activeTab === 'all') return true;
       if (activeTab === 'active') return loan.status === 'active' || loan.status === 'approved';
       return loan.status === activeTab;
@@ -210,9 +221,8 @@ const Loans: React.FC = () => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-              activeTab === tab ? tabColor(tab) : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
+            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${activeTab === tab ? tabColor(tab) : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
           >
             {t(tab)}
           </button>
@@ -255,12 +265,12 @@ const Loans: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">{loan.member}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800 dark:text-gray-200">{formatCurrency(loan.amount)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      (loan.status === 'approved' || loan.status === 'active') ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${(loan.status === 'approved' || loan.status === 'active') ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
                       loan.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
-                      loan.status === 'paid' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
-                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                    }`}>
+                        loan.status === 'paid' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
+                          loan.status === 'cancelled' ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' :
+                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                      }`}>
                       {t(loan.status === 'approved' ? 'active' : loan.status)}
                     </span>
                   </td>
@@ -307,11 +317,11 @@ const Loans: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('status')}</h4>
-                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  (selectedLoan.status === 'approved' || selectedLoan.status === 'active') ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${(selectedLoan.status === 'approved' || selectedLoan.status === 'active') ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
                   selectedLoan.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
-                  'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                }`}>{t(selectedLoan.status === 'approved' ? 'active' : selectedLoan.status)}</span>
+                    selectedLoan.status === 'cancelled' ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' :
+                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                  }`}>{t(selectedLoan.status === 'approved' ? 'active' : selectedLoan.status)}</span>
               </div>
 
               <div>

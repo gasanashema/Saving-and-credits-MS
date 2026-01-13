@@ -11,7 +11,7 @@ export default function useSavings(limit: number) {
     setLoading(true);
     setError(null);
     try {
-      const resp = await server.get<SavingType[]>(`/saving/${limit}`);
+      const resp = await server.get<SavingType[]>(`/saving/${limit}?t=${Date.now()}`);
       setSavings(resp.data);
     } catch (error) {
       console.error("Failed to fetch member savings:", error);

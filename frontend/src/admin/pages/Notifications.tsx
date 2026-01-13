@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
-import { BellIcon, CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, TrashIcon, EnvelopeOpenIcon, EnvelopeIcon, PlusIcon, UserGroupIcon, PaperAirplaneIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { BellIcon, CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, TrashIcon, EnvelopeOpenIcon, EnvelopeIcon, PlusIcon, UserGroupIcon, PaperAirplaneIcon, XMarkIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import server from '../../utils/server';
 import Modal from '../../components/ui/Modal';
@@ -219,6 +219,7 @@ const Notifications: React.FC = () => {
 
   const tabs = [
     { id: 'inbox', label: 'Inbox', icon: BellIcon },
+    { id: 'chats', label: 'Member Messages', icon: ChatBubbleLeftRightIcon },
     { id: 'send', label: 'Send Message', icon: PaperAirplaneIcon },
     { id: 'groups', label: 'Groups', icon: UserGroupIcon },
   ];

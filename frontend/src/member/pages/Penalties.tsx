@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
-import { MagnifyingGlassIcon, ExclamationTriangleIcon, UserIcon, PhoneIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon, UserIcon, PhoneIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
 import useMemberPenalties from '../../hooks/useMemberPenalties';
@@ -25,7 +25,6 @@ interface Penalty {
 
 const Penalties: React.FC = () => {
   const { t } = useLanguage();
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedPenalty, setSelectedPenalty] = useState<Penalty | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -53,15 +52,7 @@ const Penalties: React.FC = () => {
     }
   };
 
-  const filteredPenalties = penalties.filter(penalty => {
-    if (!searchTerm) return true;
-    const searchLower = searchTerm.toLowerCase().trim();
-    const fullName = `${penalty.firstName} ${penalty.lastName}`.toLowerCase();
-    return (
-      fullName.includes(searchLower) ||
-      String(penalty.amount).includes(searchLower)
-    );
-  });
+  const filteredPenalties = penalties;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -97,19 +88,6 @@ const Penalties: React.FC = () => {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-        </div>
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder={t('searchPenalties')}
-          className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
-        />
-      </div>
 
       {/* Penalties Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">

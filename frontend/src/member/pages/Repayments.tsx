@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
-import { MagnifyingGlassIcon, PlusIcon, CalendarIcon, UserIcon, PhoneIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, CalendarIcon, UserIcon, PhoneIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
 import useMemberPaymentHistory from '../../hooks/useMemberPaymentHistory';
@@ -40,7 +40,6 @@ interface NewPayment {
 
 const Repayments: React.FC = () => {
   const { t } = useLanguage();
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const { payments, summary, loading, error, refresh } = useMemberPaymentHistory();
@@ -69,19 +68,8 @@ const Repayments: React.FC = () => {
   const totalPaid = summary.totalAmountPaid;
   const totalRemaining = summary.totalRemaining;
 
-  // Fix search functionality
-  console.log('Filtering payments, searchTerm:', searchTerm);
-  const filteredPayments = payments.filter(payment => {
-    if (!searchTerm) return true;
-    const searchLower = searchTerm.toLowerCase().trim();
-    const fullName = `${payment.firstName} ${payment.lastName}`.toLowerCase();
-    return (
-      fullName.includes(searchLower) ||
-      String(payment.amount).includes(searchLower) ||
-      String(payment.remaining_amount).includes(searchLower)
-    );
-  });
-  console.log('Filtered payments:', filteredPayments);
+  // No filtering
+  const filteredPayments = payments;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -121,22 +109,6 @@ const Repayments: React.FC = () => {
         </div>
       </div>
 
-      {/* Search and Add */}
-      <div className="flex justify-between items-center">
-        <div className="relative flex-1 max-w-md">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-          </div>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t('searchPayments')}
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
-          />
-        </div>
-
-      </div>
 
       {/* Payments Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">

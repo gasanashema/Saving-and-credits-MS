@@ -18,7 +18,7 @@ export default function useLoans(limit: number) {
       const endpoint = user?.role === 'member'
         ? `/loans/member/${user.id}`
         : (limit ? `/loans/${limit}` : `/loans/30`);
-        
+
       const resp = await server.get<BackendLoan[]>(endpoint);
       const raw = Array.isArray(resp.data) ? resp.data : [];
 
@@ -36,7 +36,7 @@ export default function useLoans(limit: number) {
         amountToPay: Number(item.amountTopay ?? item.amountToPay ?? item.amount_to_pay ?? item.amounttopay ?? 0),
         payedAmount: Number(item.payedAmount ?? item.paidAmount ?? item.payed_amount ?? 0),
         // Handle both lstatus and status fields, normalize 'approved' to 'active'
-        status: String(item.lstatus ?? item.status ?? ""),
+        status: String(item.lstatus ?? item.status ?? "").toLowerCase(),
         id: Number(item.id ?? 0),
         nid: String(item.nid ?? ""),
         firstName: String(item.firstName ?? item.firstname ?? item.first_name ?? ""),
@@ -56,10 +56,10 @@ export default function useLoans(limit: number) {
     getLoans();
   }, [getLoans]);
 
-  return { 
-    loans, 
-    loading, 
-    error, 
-    refresh: getLoans 
+  return {
+    loans,
+    loading,
+    error,
+    refresh: getLoans
   };
 }
