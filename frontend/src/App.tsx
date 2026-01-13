@@ -16,6 +16,7 @@ import AdminDashboard from "./admin/pages/Dashboard";
 import AdminMembers from "./admin/pages/Members";
 import AdminSavings from "./admin/pages/Savings";
 import AdminLoans from "./admin/pages/Loans";
+import AdminLoanDetail from "./admin/pages/LoanDetail"; // Import AdminLoanDetail
 import AdminRepayments from "./admin/pages/Repayments";
 import AdminPenalties from "./admin/pages/Penalties";
 import AdminReports from "./admin/pages/Reports";
@@ -40,6 +41,7 @@ import MemberDashboard from "./member/pages/Dashboard";
 
 import MemberSavings from "./member/pages/Savings";
 import MemberLoans from "./member/pages/Loans";
+import MemberLoanDetail from "./member/pages/LoanDetail"; // Import MemberLoanDetail
 import MemberRepayments from "./member/pages/Repayments";
 import MemberPenalties from "./member/pages/Penalties";
 import MemberReports from "./member/pages/Reports";
@@ -70,6 +72,7 @@ export function App() {
                   <Route path="members" element={<AdminMembers />} />
                   <Route path="savings" element={<AdminSavings />} />
                   <Route path="loans" element={<AdminLoans />} />
+                  <Route path="loans/:id" element={<AdminLoanDetail />} />
                   <Route path="repayments" element={<AdminRepayments />} />
                   <Route path="penalties" element={<AdminPenalties />} />
                   <Route path="reports" element={<AdminReports />} />
@@ -87,6 +90,7 @@ export function App() {
                   <Route path="members" element={<SuperAdminMembers />} />
                   <Route path="savings" element={<SuperAdminSavings />} />
                   <Route path="loans" element={<SuperAdminLoans />} />
+                  <Route path="loans/:id" element={<AdminLoanDetail />} /> {/* Reuse Admin Detail for SuperAdmin */}
                   <Route path="repayments" element={<SuperAdminRepayments />} />
                   <Route path="penalties" element={<SuperAdminPenalties />} />
                   <Route path="reports" element={<SuperAdminReports />} />
@@ -103,6 +107,7 @@ export function App() {
 
                   <Route path="savings" element={<MemberSavings />} />
                   <Route path="loans" element={<MemberLoans />} />
+                  <Route path="loans/:id" element={<MemberLoanDetail />} />
                   <Route path="repayments" element={<MemberRepayments />} />
                   <Route path="penalties" element={<MemberPenalties />} />
                   <Route path="reports" element={<MemberReports />} />

@@ -35,9 +35,13 @@ async function createEventNotification({ type, loanId, senderAdminId = 0 }) {
       const [admins] = await conn.query("SELECT user_id FROM users WHERE role IN ('admin','supperadmin','sadmin')");
       receivers = admins.map(a => ({ type: 'admin', id: a.user_id }));
       title = 'New loan application';
-      const [loan] = await conn.query('SELECT memberId FROM loan WHERE loanId = ?', [loanId]);
+      const [loan] = await conn.query(
+        'SELECT l.memberId, m.firstName, m.lastName FROM loan l JOIN members m ON l.memberId = m.id WHERE l.loanId = ?',
+        [loanId]
+      );
       if (loan.length > 0) {
-        message = `Member ${loan[0].memberId} submitted a loan application`;
+        const memberName = `${loan[0].firstName} ${loan[0].lastName}`;
+        message = `${memberName} submitted a loan application`;
       } else {
         message = 'A new loan application has been submitted';
       }

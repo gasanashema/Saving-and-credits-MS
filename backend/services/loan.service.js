@@ -53,21 +53,42 @@ const loanAction = async (req, res) => {
     }
     const dt = new Date();
 
-    if (action === 'cancel') {
-      // For cancel, check if member owns the loan
-      const [loanCheck] = await conn.query(
-        "SELECT memberId FROM `loan` WHERE loanId=?",
-        [loanId]
-      );
-      if (loanCheck.length === 0 || loanCheck[0].memberId !== userId.id) {
-        return res.status(403).json({ error: "Unauthorized to cancel this loan" });
-      }
-      const [result] = await conn.query(
-        "DELETE FROM `loan` WHERE loanId=? AND status='pending'",
-        [loanId]
-      );
-      return res.json({ data: result, message: "Loan cancelled successfully" });
-    } else {
+      if (action === 'delete') {
+         // Delete cancelled loan
+         const [loanCheck] = await conn.query(
+          "SELECT memberId, status FROM `loan` WHERE loanId=?",
+          [loanId]
+        );
+        if (loanCheck.length === 0 || loanCheck[0].memberId !== userId.id) {
+          return res.status(403).json({ error: "Unauthorized to delete this loan" });
+        }
+        if (loanCheck[0].status !== 'cancelled') {
+           return res.status(400).json({ error: "Only cancelled loans can be deleted" });
+        }
+         const [result] = await conn.query(
+           "DELETE FROM `loan` WHERE loanId=?",
+           [loanId]
+         );
+         return res.json({ data: result, message: "Loan deleted successfully" });
+      } else if (action === 'cancel') {
+        const [loanCheck] = await conn.query(
+          "SELECT memberId, status FROM `loan` WHERE loanId=?",
+          [loanId]
+        );
+        if (loanCheck.length === 0 || loanCheck[0].memberId !== userId.id) {
+          return res.status(403).json({ error: "Unauthorized to cancel this loan" });
+        }
+        // Only pending loans can be cancelled
+        if (loanCheck[0].status !== 'pending') {
+             return res.status(400).json({ error: "Only pending loans can be cancelled" });
+        }
+        
+        const [result] = await conn.query(
+          "UPDATE `loan` SET status='cancelled' WHERE loanId=?",
+          [loanId]
+        );
+        return res.json({ data: result, message: "Loan cancelled successfully" });
+      } else {
       // For approve/reject, admin action
       const approverId = userId.id;
       const [result] = await conn.query(
@@ -381,6 +402,20 @@ const getMemberPaymentHistory = async (req, res) => {
   }
 };
 
+const getLoanById = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [loans] = await conn.query(
+      "SELECT `loanId`, `requestDate`, `re`, `amount`, `rate`, `duration`, `applovedDate`, `apploverId`, `memberId`, `amountTopay`, `payedAmount`, loan.status as lstatus, members.id as member_id, `nid`, `firstName`, `lastName` FROM `loan` INNER JOIN members ON members.id = loan.memberId WHERE loan.loanId = ?",
+      [parseInt(id)]
+    );
+    if (loans.length === 0) return res.status(404).json({ message: "Loan not found" });
+    return res.json(loans[0]);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 module.exports = {
   addLoan,
   getTotal,
@@ -393,4 +428,5 @@ module.exports = {
   getLoanPaymentDetails,
   getAllLoanPayments,
   getMemberPaymentHistory,
+  getLoanById,
 };

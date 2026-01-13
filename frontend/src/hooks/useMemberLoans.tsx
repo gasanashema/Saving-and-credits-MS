@@ -35,7 +35,7 @@ export default function useMemberLoans() {
         amountToPay: Number(item.amountTopay ?? item.amountToPay ?? item.amount_to_pay ?? item.amounttopay ?? 0),
         payedAmount: Number(item.payedAmount ?? item.paidAmount ?? item.payed_amount ?? 0),
         // Handle both lstatus and status fields, normalize 'approved' to 'active'
-        status: String(item.lstatus ?? item.status ?? ""),
+        status: String(item.lstatus ?? item.status ?? "").toLowerCase(),
         id: Number(item.id ?? 0),
         nid: String(item.nid ?? ""),
         firstName: String(item.firstName ?? item.firstname ?? item.first_name ?? ""),

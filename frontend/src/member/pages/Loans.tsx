@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import useMemberLoans from '../../hooks/useMemberLoans';
+import useLoanEligibility from '../../hooks/useLoanEligibility';
 import useLoanPaymentDetails from '../../hooks/useLoanPaymentDetails';
 import server from '../../utils/server';
 import { BackendLoan, LoanPaymentDetails } from '../../types/loanTypes';
@@ -13,7 +14,7 @@ import { toast } from 'sonner';
 // Add loan purposes for the form
 const loanPurposes = ['business', 'education', 'housing', 'personal', 'emergency', 'agriculture'];
 
-type Tab = 'all' | 'pending' | 'active' | 'paid' | 'rejected';
+type Tab = 'all' | 'pending' | 'active' | 'paid' | 'rejected' | 'cancelled';
 
 interface UiLoan {
   id: number;
@@ -31,7 +32,7 @@ interface UiLoan {
   payedAmount?: number;
 }
 
-const tabs: Tab[] = ['all', 'pending', 'active', 'paid', 'rejected'];
+const tabs: Tab[] = ['all', 'pending', 'active', 'paid', 'rejected', 'cancelled'];
 
 const Loans: React.FC = () => {
   const { t } = useLanguage();
@@ -79,7 +80,7 @@ const Loans: React.FC = () => {
       const dateB = new Date(b.date || 0).getTime();
       return dateB - dateA;
     });
-    
+
     setDisplayLoans(sortedLoans);
   }, [backendLoans]);
 
@@ -96,6 +97,16 @@ const Loans: React.FC = () => {
   const { paymentDetails, loading: paymentLoading, error: paymentError, refresh: refreshPaymentDetails } = useLoanPaymentDetails(selectedLoan?.id || null);
 
   const { user } = useAuth();
+  const { eligibility, loading: eligibilityLoading, refresh: refreshEligibility } = useLoanEligibility();
+
+  useEffect(() => {
+    if (isAddModalOpen) {
+      refreshEligibility();
+    }
+  }, [isAddModalOpen, refreshEligibility]);
+
+  const maxLoanLimit = eligibility?.limit || 0;
+  const isEligible = eligibility?.eligible || false;
 
   // Set default phone number when modal opens
   useEffect(() => {
@@ -103,7 +114,7 @@ const Loans: React.FC = () => {
       setPaymentPhone(user.telephone);
     }
   }, [isPaymentModalOpen, user]);
-  
+
   // new loan form state
   const [newLoan, setNewLoan] = useState({
     amount: '',
@@ -118,22 +129,22 @@ const Loans: React.FC = () => {
   // Calculate loan terms based on Rwanda market rates
   const calculateLoanTerms = (amount: number, purpose = 'personal') => {
     if (!amount) return { rate: 0, duration: 0, amountToPay: 0 };
-    
+
     // Special case: 0% rate for amounts under 50K
     if (amount < 50000) {
       return { rate: 0, duration: 4, amountToPay: amount };
     }
-    
+
     let annualRate = 18; // Default personal loan rate
     let duration = 6;
-    
+
     // Special case: 0% rate for small amounts (emergency/personal)
     if (amount <= 100000 && (purpose === 'emergency' || purpose === 'personal')) {
       annualRate = 0;
       duration = 4;
       return { rate: 0, duration: 4, amountToPay: amount };
     }
-    
+
     // Set rates based on loan purpose (Rwanda market rates)
     if (purpose === 'housing') {
       annualRate = 14; // Mortgage rates 11-16%
@@ -146,7 +157,7 @@ const Loans: React.FC = () => {
     } else {
       annualRate = 18; // Default
     }
-    
+
     // Set duration based on amount
     if (amount <= 500000) {
       duration = 6;
@@ -155,11 +166,11 @@ const Loans: React.FC = () => {
     } else if (amount <= 2000000) {
       duration = 18;
     }
-    
+
     // Calculate total amount using compound interest for the duration
     const monthlyRate = annualRate / 100 / 12;
     const amountToPay = amount * Math.pow(1 + monthlyRate, duration);
-    
+
     return { rate: annualRate, duration, amountToPay };
   };
 
@@ -181,6 +192,7 @@ const Loans: React.FC = () => {
       case 'active': return 'bg-green-600 text-white';
       case 'paid': return 'bg-blue-600 text-white';
       case 'rejected': return 'bg-red-600 text-white';
+      case 'cancelled': return 'bg-gray-500 text-white';
       default: return 'bg-gray-600 text-white';
     }
   };
@@ -188,7 +200,7 @@ const Loans: React.FC = () => {
   // Filtering: tab
   const filteredLoans = displayLoans
     .filter(loan => {
-      if (activeTab === 'all') return true;
+      if (activeTab === 'all') return loan.status !== 'cancelled';
       if (activeTab === 'active') return loan.status === 'active' || loan.status === 'approved';
       return loan.status === activeTab;
     });
@@ -203,19 +215,31 @@ const Loans: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    
+
     if (name === 'amount') {
       const numericValue = Number(parseFormattedNumber(value));
-      if (numericValue <= 2000000) {
-        const formattedValue = formatNumberWithCommas(value);
-        setNewLoan(prev => ({ ...prev, [name]: formattedValue }));
+      // Allow typing if within reasonable bounds (e.g. up to limit or slightly more before validation hits)
+      // But user asked to limit him. Let's strictly limit or allow typing but show error? 
+      // "system has to limit him". I'll let him type but validate on set/submit, or cap it?
+      // "if he tries to add amount beyond limit... system has to limit him".
+      // Let's cap the input visually or show toast?
+      // I'll allow typing to let him see what he entered, but validate in validateForm and show red border/text.
+      // Or I can prevent typing beyond limit. 
+      // Preventing typing is annoying if limit is 0 (can't even type to test).
+      // I'll stick to validation.
+
+      const formattedValue = formatNumberWithCommas(value);
+      setNewLoan(prev => ({ ...prev, [name]: formattedValue }));
+
+      if (eligibility && numericValue > maxLoanLimit) {
+        setErrors(prev => ({ ...prev, amount: `Maximum eligible amount is ${formatCurrency(maxLoanLimit)}` }));
       } else {
-        toast.error('Maximum loan amount is 2,000,000');
+        if (errors.amount) setErrors(prev => ({ ...prev, amount: '' }));
       }
     } else {
       setNewLoan(prev => ({ ...prev, [name]: value }));
     }
-    
+
     if (errors[name as keyof typeof errors]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
@@ -226,8 +250,8 @@ const Loans: React.FC = () => {
     if (!newLoan.amount || isNaN(amount) || amount <= 0) {
       newErrors.amount = 'Please enter a valid loan amount';
       isValid = false;
-    } else if (amount > 2000000) {
-      newErrors.amount = 'Maximum loan amount is 2,000,000';
+    } else if (amount > maxLoanLimit) {
+      newErrors.amount = `Maximum eligible amount is ${formatCurrency(maxLoanLimit)}`;
       isValid = false;
     }
     setErrors(newErrors);
@@ -254,7 +278,7 @@ const Loans: React.FC = () => {
       setNewLoan({ amount: '', purpose: 'business', notes: '' });
       setIsAddModalOpen(false);
       toast.success(t('loanRequestSubmitted'));
-      
+
       // Refresh the loans list
       refresh();
     } catch (error) {
@@ -266,13 +290,16 @@ const Loans: React.FC = () => {
   const handleStatusChange = async (loanId: number, action: string) => {
     try {
       await server.get(`/loans/actions/${loanId}/${action}`);
-      if (action === 'cancel') {
+      if (action === 'delete') {
         setDisplayLoans(prev => prev.filter(l => l.id !== loanId));
+        toast.success(t('loanDeleted') || 'Loan deleted successfully');
+      } else if (action === 'cancel') {
+        setDisplayLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: 'cancelled' } : l));
+        toast.success(t('loanCancelled') || 'Loan cancelled successfully');
       } else {
         setDisplayLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: action } : l));
+        toast.success(action === 'approved' || action === 'active' ? t('loanApproved') : t('loanRejected'));
       }
-      setIsViewModalOpen(false);
-      toast.success(action === 'cancel' ? 'Loan cancelled successfully' : (action === 'approved' || action === 'active' ? t('loanApproved') : t('loanRejected')));
       refresh();
     } catch (error) {
       console.error('Status change error:', error);
@@ -380,9 +407,8 @@ const Loans: React.FC = () => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-              activeTab === tab ? tabColor(tab) : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
+            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${activeTab === tab ? tabColor(tab) : 'bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
           >
             {t(tab)}
           </button>
@@ -410,12 +436,12 @@ const Loans: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">{loan.member}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800 dark:text-gray-200">{formatCurrency(loan.amount)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      (loan.status === 'approved' || loan.status === 'active') ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${(loan.status === 'approved' || loan.status === 'active') ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
                       loan.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
-                      loan.status === 'paid' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
-                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                    }`}>
+                        loan.status === 'paid' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
+                          loan.status === 'cancelled' ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' :
+                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                      }`}>
                       {t(loan.status === 'approved' ? 'active' : loan.status)}
                     </span>
                   </td>
@@ -446,14 +472,14 @@ const Loans: React.FC = () => {
         {selectedLoan && (() => {
           // Calculate loan terms for selected loan
           const loanTerms = calculateLoanTerms(selectedLoan.amount, selectedLoan.notes?.split(':')[0] || 'personal');
-          
+
           // Calculate remaining time (assuming loan starts from application date)
           const startDate = new Date(selectedLoan.date);
           const endDate = new Date(startDate);
           endDate.setMonth(endDate.getMonth() + loanTerms.duration);
           const now = new Date();
           const remainingMonths = Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30)));
-          
+
           return (
             <div className="space-y-6">
               <div className="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-xl">
@@ -486,128 +512,133 @@ const Loans: React.FC = () => {
                 </div>
               </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('member')}</h4>
-                <p className="text-base text-gray-800 dark:text-white">{selectedLoan.member}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('status')}</h4>
-                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  (selectedLoan.status === 'approved' || selectedLoan.status === 'active') ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                  selectedLoan.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
-                  'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                }`}>{t(selectedLoan.status === 'approved' ? 'active' : selectedLoan.status)}</span>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('applicationDate')}</h4>
-                <p className="text-base text-gray-800 dark:text-white">{selectedLoan.date ? new Date(selectedLoan.date).toLocaleDateString() : '-'}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('repaymentProgress')}</h4>
-                <div className="flex items-center">
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mr-2">
-                    <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${selectedLoan.progress}%` }} />
-                  </div>
-                  <span className="text-sm text-gray-800 dark:text-white">{selectedLoan.progress}%</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('member')}</h4>
+                  <p className="text-base text-gray-800 dark:text-white">{selectedLoan.member}</p>
                 </div>
-              </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('status')}</h4>
+                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${(selectedLoan.status === 'approved' || selectedLoan.status === 'active') ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                    selectedLoan.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
+                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                    }`}>{t(selectedLoan.status === 'approved' ? 'active' : selectedLoan.status)}</span>
+                </div>
 
-              {selectedLoan.purpose && <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('purpose')}</h4>
-                <p className="text-base text-gray-800 dark:text-white capitalize">{t(selectedLoan.purpose)}</p>
-              </div>}
-
-
-
-              {selectedLoan.dueDate && <div>
-                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('dueDate')}</h4>
-                <p className="text-base text-gray-800 dark:text-white">{new Date(selectedLoan.dueDate).toLocaleDateString()}</p>
-              </div>}
-            </div>
-
-            {selectedLoan.notes && <div>
-              <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('notes')}</h4>
-              <p className="text-base text-gray-800 dark:text-white mt-1">{selectedLoan.notes}</p>
-            </div>}
-
-            {/* Repayment Section */}
-            {paymentDetails && (
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-4 flex items-center">
-                  <CreditCardIcon className="h-5 w-5 mr-2" />
-                  {t('repaymentDetails')}
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl">
-                    <div className="flex items-center">
-                      <BanknotesIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                      <div className="ml-3">
-                        <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('totalAmount')}</h4>
-                        <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">{formatCurrency(paymentDetails.summary.totalAmount)}</p>
-                      </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('applicationDate')}</h4>
+                  <p className="text-base text-gray-800 dark:text-white">{selectedLoan.date ? new Date(selectedLoan.date).toLocaleDateString() : '-'}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('repaymentProgress')}</h4>
+                  <div className="flex items-center">
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mr-2">
+                      <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${selectedLoan.progress}%` }} />
                     </div>
-                  </div>
-
-                  <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded-xl">
-                    <div className="flex items-center">
-                      <CheckCircleIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
-                      <div className="ml-3">
-                        <h4 className="text-sm font-medium text-green-800 dark:text-green-300">{t('paidAmount')}</h4>
-                        <p className="text-lg font-semibold text-green-900 dark:text-green-100">{formatCurrency(paymentDetails.summary.paidAmount)}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-xl">
-                    <div className="flex items-center">
-                      <ClockIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
-                      <div className="ml-3">
-                        <h4 className="text-sm font-medium text-red-800 dark:text-red-300">{t('remainingAmount')}</h4>
-                        <p className="text-lg font-semibold text-red-900 dark:text-red-100">{formatCurrency(paymentDetails.summary.remainingAmount)}</p>
-                      </div>
-                    </div>
+                    <span className="text-sm text-gray-800 dark:text-white">{selectedLoan.progress}%</span>
                   </div>
                 </div>
 
-                {paymentDetails.payments.length > 0 && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('paymentHistory')}</h4>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {paymentDetails.payments.map(payment => (
-                        <div key={payment.pay_id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                          <div>
-                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{formatCurrency(payment.amount)}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(payment.pay_date).toLocaleDateString()}</p>
-                          </div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{payment.recorder_name}</p>
+                {selectedLoan.purpose && <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('purpose')}</h4>
+                  <p className="text-base text-gray-800 dark:text-white capitalize">{t(selectedLoan.purpose)}</p>
+                </div>}
+
+
+
+                {selectedLoan.dueDate && <div>
+                  <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('dueDate')}</h4>
+                  <p className="text-base text-gray-800 dark:text-white">{new Date(selectedLoan.dueDate).toLocaleDateString()}</p>
+                </div>}
+              </div>
+
+              {selectedLoan.notes && <div>
+                <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('notes')}</h4>
+                <p className="text-base text-gray-800 dark:text-white mt-1">{selectedLoan.notes}</p>
+              </div>}
+
+              {/* Repayment Section */}
+              {paymentDetails && (
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-4 flex items-center">
+                    <CreditCardIcon className="h-5 w-5 mr-2" />
+                    {t('repaymentDetails')}
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl">
+                      <div className="flex items-center">
+                        <BanknotesIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                        <div className="ml-3">
+                          <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300">{t('totalAmount')}</h4>
+                          <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">{formatCurrency(paymentDetails.summary.totalAmount)}</p>
                         </div>
-                      ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded-xl">
+                      <div className="flex items-center">
+                        <CheckCircleIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
+                        <div className="ml-3">
+                          <h4 className="text-sm font-medium text-green-800 dark:text-green-300">{t('paidAmount')}</h4>
+                          <p className="text-lg font-semibold text-green-900 dark:text-green-100">{formatCurrency(paymentDetails.summary.paidAmount)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-xl">
+                      <div className="flex items-center">
+                        <ClockIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
+                        <div className="ml-3">
+                          <h4 className="text-sm font-medium text-red-800 dark:text-red-300">{t('remainingAmount')}</h4>
+                          <p className="text-lg font-semibold text-red-900 dark:text-red-100">{formatCurrency(paymentDetails.summary.remainingAmount)}</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
+
+                  {paymentDetails.payments.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('paymentHistory')}</h4>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {paymentDetails.payments.map(payment => (
+                          <div key={payment.pay_id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div>
+                              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{formatCurrency(payment.amount)}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(payment.pay_date).toLocaleDateString()}</p>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{payment.recorder_name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                {selectedLoan.status === 'active' && (
+                  <button onClick={() => setIsPaymentModalOpen(true)} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 flex items-center">
+                    <CreditCardIcon className="h-5 w-5 mr-1" />Pay with MTN MoMo
+                  </button>
+                )}
+
+                <button onClick={() => setIsViewModalOpen(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                  {t('close')}
+                </button>
+
+                {selectedLoan.status === 'pending' && (
+                  <button onClick={() => handleStatusChange(selectedLoan.id, 'cancel')} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 flex items-center">
+                    <XCircleIcon className="h-5 w-5 mr-1" />{t('cancelLoan')}
+                  </button>
+                )}
+
+                {selectedLoan.status === 'cancelled' && (
+                  <button onClick={() => handleStatusChange(selectedLoan.id, 'delete')} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 flex items-center">
+                    <XCircleIcon className="h-5 w-5 mr-1" />{t('delete')}
+                  </button>
                 )}
               </div>
-            )}
-
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-              {selectedLoan.status === 'active' && (
-                <button onClick={() => setIsPaymentModalOpen(true)} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 flex items-center">
-                  <CreditCardIcon className="h-5 w-5 mr-1" />Pay with MTN MoMo
-                </button>
-              )}
-
-              <button onClick={() => setIsViewModalOpen(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                {t('close')}
-              </button>
-
-              {selectedLoan.status === 'pending' && (
-                <button onClick={() => handleStatusChange(selectedLoan.id, 'cancel')} className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 flex items-center">
-                  <XCircleIcon className="h-5 w-5 mr-1" />{t('cancelLoan')}
-                </button>
-              )}
-            </div>
             </div>
           );
         })()}
@@ -711,29 +742,29 @@ const Loans: React.FC = () => {
                 </p>
                 <div className="flex items-center justify-center space-x-2">
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
               </div>
             )}
 
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => {
                   setIsPaymentModalOpen(false);
                   setPaymentAmount('');
                   setPaymentPhone('');
                   setPaymentErrors({ amount: '', phone: '' });
-                }} 
-                disabled={isProcessingPayment} 
+                }}
+                disabled={isProcessingPayment}
                 className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
               >
                 {isProcessingPayment ? 'Processing...' : 'Cancel'}
               </button>
-              <button 
-                type="submit" 
-                disabled={isProcessingPayment} 
+              <button
+                type="submit"
+                disabled={isProcessingPayment}
                 className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 flex items-center"
               >
                 {isProcessingPayment ? (
@@ -759,9 +790,31 @@ const Loans: React.FC = () => {
           <div className="space-y-4">
 
 
+            {/* Eligibility Banner */}
+            {!eligibilityLoading && (
+              <div className={`p-4 rounded-xl border ${isEligible ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <h4 className={`font-semibold ${isEligible ? 'text-green-800' : 'text-red-800'}`}>
+                  {isEligible ? '✅ You are Eligible' : '❌ Not Eligible'}
+                </h4>
+                <p className={`text-sm ${isEligible ? 'text-green-700' : 'text-red-700'}`}>
+                  Max Limit: <strong>{formatCurrency(maxLoanLimit)}</strong>
+                </p>
+                {!isEligible && eligibility?.reason && <p className="text-xs text-red-600 mt-1">{eligibility.reason}</p>}
+              </div>
+            )}
+
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('loanAmount')} * (Up to 2,000,000)</label>
-              <input type="text" id="amount" name="amount" value={newLoan.amount} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" placeholder="Enter amount" />
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('loanAmount')} *</label>
+              <input
+                type="text"
+                id="amount"
+                name="amount"
+                value={newLoan.amount}
+                onChange={handleInputChange}
+                disabled={!isEligible}
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 dark:bg-gray-700 dark:text-white ${errors.amount ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'}`}
+                placeholder={isEligible ? `Enter amount (Max: ${formatCurrency(maxLoanLimit)})` : "Not eligible"}
+              />
               {errors.amount && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.amount}</p>}
             </div>
 
