@@ -11,11 +11,12 @@ import useMemberPaymentHistory from '../../hooks/useMemberPaymentHistory';
 import useMemberSavings from '../../hooks/useMemberSavings';
 import useMemberNotifications from '../../hooks/useMemberNotifications';
 import useMemberProfile from '../../hooks/useMemberProfile';
+import useMemberPenalties from '../../hooks/useMemberPenalties';
 import { toast } from 'sonner';
 import server from '../../utils/server';
 
 const processData = (rawData: any) => {
-  const { loans, payments, savings, profile } = rawData;
+  const { loans, payments, savings, profile, penalties } = rawData;
 
   // Process payment history over months
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -50,12 +51,13 @@ const processData = (rawData: any) => {
     { name: 'Rejected', value: loanStatusCounts.rejected }
   ].filter(item => item.value > 0);
 
-  // Calculate totals
-  const totalLoans = loans.length;
-  // Use the member's actual balance from profile instead of calculating from transactions
-  const totalSavings = profile?.balance || 0;
-  const activeLoans = loanStatusCounts.active;
-  const pendingRepayments = loanStatusCounts.active; // Active loans need repayment
+  // Calculate totals (remaining amount for active loans)
+  const totalLoans = (loans as any[])
+    .filter((l: any) => l.status === 'active')
+    .reduce((sum: number, l: any) => sum + (Number(l.amountToPay || 0) - Number(l.payedAmount || 0)), 0);
+  // Calculate total savings from savings data
+  const totalSavings = (savings as any[]).reduce((sum: number, s: any) => sum + Number(s.amount || 0), 0);
+  const totalPenalties = (penalties as any[]).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
 
   // Repayment performance (simplified)
   const repaymentPerformance = months.map((month, i) => {
@@ -100,7 +102,7 @@ const processData = (rawData: any) => {
       amount: p.amount,
       date: p.pay_date
     }))
-  ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+  ].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
 
   return {
     paymentGrowth,
@@ -108,8 +110,7 @@ const processData = (rawData: any) => {
     stats: {
       totalLoans,
       totalSavings,
-      activeLoans,
-      pendingRepayments
+      totalPenalties
     },
     repaymentPerformance,
     recentActivity
@@ -124,8 +125,9 @@ const Dashboard: React.FC = () => {
   const { savings } = useMemberSavings();
   const { notifications, unreadCount } = useMemberNotifications();
   const { profile } = useMemberProfile();
+  const { penalties } = useMemberPenalties();
   const [data, setData] = useState<any>({
-    stats: { totalLoans: 0, totalSavings: 0, activeLoans: 0, pendingRepayments: 0 },
+    stats: { totalLoans: 0, totalSavings: 0, totalPenalties: 0 },
     recentActivity: []
   });
   const [paymentForm, setPaymentForm] = useState({
@@ -137,19 +139,14 @@ const Dashboard: React.FC = () => {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   useEffect(() => {
-    console.log('Dashboard inputs:', { loansCount: loans.length, paymentsCount: payments.length, savingsCount: savings.length, profile });
-    const processedData = processData({ loans, payments, savings, profile });
+    console.log('Dashboard inputs:', { loansCount: loans.length, paymentsCount: payments.length, savingsCount: savings.length, penaltiesCount: penalties.length, profile });
+    const processedData = processData({ loans, payments, savings, profile, penalties });
     console.log('Dashboard processedData sample:', processedData.recentActivity.slice(0,3));
     setData(processedData);
-  }, [loans, payments, savings, profile]);
+  }, [loans, payments, savings, profile, penalties]);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
+    return `RWF ${value.toLocaleString()}`;
   };
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
@@ -177,8 +174,6 @@ const Dashboard: React.FC = () => {
       toast.success('Payment successful!');
       refreshLoans();
       refreshPayments();
-      // Refresh the page to update stats
-      setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Payment failed');
@@ -210,35 +205,24 @@ const Dashboard: React.FC = () => {
     }
   };
   return <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-            {t('dashboard')}
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            {t('dashboardOverview')}
-          </p>
-        </div>
-        <button
-          onClick={() => window.location.reload()}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-        >
-          Refresh
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+          {t('dashboard')}
+        </h1>
+        <p className="text-gray-500 dark:text-gray-400">
+          {t('dashboardOverview')}
+        </p>
       </div>
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <motion.div variants={item}>
-          <StatsCard title={t('totalLoans')} value={data.stats.totalLoans.toString()} icon={<BanknotesIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-blue-500" />
+          <StatsCard title={t('totalLoans')} value={formatCurrency(data.stats.totalLoans)} icon={<BanknotesIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-blue-500" />
         </motion.div>
         <motion.div variants={item}>
           <StatsCard title={t('totalSavings')} value={formatCurrency(data.stats.totalSavings)} icon={<CurrencyDollarIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-emerald-500" />
         </motion.div>
         <motion.div variants={item}>
-          <StatsCard title={t('activeLoans')} value={data.stats.activeLoans.toString()} icon={<BanknotesIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-amber-500" />
-        </motion.div>
-        <motion.div variants={item}>
-          <StatsCard title={t('pendingRepayments')} value={data.stats.pendingRepayments.toString()} icon={<ArrowDownCircleIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-purple-500" />
+          <StatsCard title="Total Penalties" value={formatCurrency(data.stats.totalPenalties)} icon={<ArrowDownCircleIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-red-500" />
         </motion.div>
       </div>
 

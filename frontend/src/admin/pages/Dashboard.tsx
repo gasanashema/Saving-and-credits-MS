@@ -1,40 +1,42 @@
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
 import StatsCard from '../../components/ui/StatsCard';
-import { UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ClockIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import { UsersIcon, BanknotesIcon, ExclamationTriangleIcon, ArrowDownCircleIcon, ClockIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import { useState, useEffect } from 'react';
 import server from '../../utils/server';
 import { toast } from 'sonner';
 
 const fetchAdminDashboardData = async () => {
   try {
-    const [membersRes, savingsRes, loansRes, paymentsRes] = await Promise.all([
+    const [membersRes, savingsRes, loansRes, paymentsRes, penaltiesRes] = await Promise.all([
       server.get('/members'),
       server.get('/saving/1000'), // All savings
       server.get('/loans/1000'), // All loans
-      server.get('/loans/payments/recent') // Recent payments
+      server.get('/loans/payments/recent'), // Recent payments
+      server.get('/penalities/data/0/1000/all') // All penalties
     ]);
 
     return {
       members: membersRes.data || [],
       savings: savingsRes.data || [],
       loans: loansRes.data || [],
-      payments: paymentsRes.data?.payments || paymentsRes.data || []
+      payments: paymentsRes.data?.payments || paymentsRes.data || [],
+      penalties: penaltiesRes.data || []
     };
   } catch (error) {
     console.error('Error fetching admin dashboard data:', error);
-    return { members: [], savings: [], loans: [], payments: [] };
+    return { members: [], savings: [], loans: [], payments: [], penalties: [] };
   }
 };
 
 const processAdminData = (rawData: any) => {
-  const { members, savings, loans, payments } = rawData;
+  const { members, savings, loans, payments, penalties } = rawData;
 
   // Stats
   const totalMembers = members.length;
-  const totalSavings = savings.reduce((sum: number, s: any) => sum + (s.amount || 0), 0);
-  const activeLoans = loans.filter((l: any) => l.status === 'active' || l.status === 'approved').length;
-  const pendingRepayments = loans.filter((l: any) => l.status === 'active' || l.status === 'approved').length; // Assuming active loans need repayment
+  const totalSavings = savings.reduce((sum: number, s: any) => sum + (s.total || s.amount || 0), 0);
+  const activeLoansAmount = loans.filter((l: any) => l.lstatus === 'active').reduce((sum: number, l: any) => sum + (l.amount || 0), 0);
+  const unpaidPenalties = penalties.filter((p: any) => p.pstatus !== 'paid').reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
 
 
 
@@ -42,10 +44,10 @@ const processAdminData = (rawData: any) => {
   // Recent activity (combine savings, loans, payments)
   const recentActivity = [
     ...savings.slice(-5).map((s: any) => ({
-      id: `saving_${s.id}`,
+      id: `saving_${s.sav_id}`,
       type: 'savings',
       member: `${s.firstName} ${s.lastName}`,
-      amount: s.amount,
+      amount: s.total || s.amount,
       date: s.date
     })),
     ...loans.slice(-5).map((l: any) => ({
@@ -68,8 +70,8 @@ const processAdminData = (rawData: any) => {
     stats: {
       totalMembers,
       totalSavings,
-      activeLoans,
-      pendingRepayments
+      activeLoansAmount,
+      unpaidPenalties
     },
     recentActivity
   };
@@ -79,24 +81,24 @@ const Dashboard: React.FC = () => {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>({
-    stats: { totalMembers: 0, totalSavings: 0, activeLoans: 0, pendingRepayments: 0 },
+    stats: { totalMembers: 0, totalSavings: 0, activeLoansAmount: 0, unpaidPenalties: 0 },
     recentActivity: []
   });
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const rawData = await fetchAdminDashboardData();
-        const processedData = processAdminData(rawData);
-        setData(processedData);
-      } catch (error) {
-        toast.error('Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const rawData = await fetchAdminDashboardData();
+      const processedData = processAdminData(rawData);
+      setData(processedData);
+    } catch (error) {
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -141,12 +143,6 @@ const Dashboard: React.FC = () => {
             {t('dashboardOverview')}
           </p>
         </div>
-        <button
-          onClick={() => loadData()}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-        >
-          Refresh
-        </button>
       </div>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -157,10 +153,10 @@ const Dashboard: React.FC = () => {
           <StatsCard title={t('totalSavings')} value={formatCurrency(data.stats.totalSavings)} icon={<CurrencyDollarIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-emerald-500" />
         </motion.div>
         <motion.div variants={item}>
-          <StatsCard title={t('activeLoans')} value={data.stats.activeLoans.toString()} icon={<BanknotesIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-amber-500" />
+          <StatsCard title={t('activeLoans')} value={formatCurrency(data.stats.activeLoansAmount)} icon={<BanknotesIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-amber-500" />
         </motion.div>
         <motion.div variants={item}>
-          <StatsCard title={t('pendingRepayments')} value={data.stats.pendingRepayments.toString()} icon={<ArrowDownCircleIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-purple-500" />
+          <StatsCard title="Unpaid Penalties" value={formatCurrency(data.stats.unpaidPenalties)} icon={<ExclamationTriangleIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-red-500" />
         </motion.div>
       </div>
       {/* Recent Activity */}

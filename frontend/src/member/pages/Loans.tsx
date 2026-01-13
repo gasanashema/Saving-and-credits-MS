@@ -6,7 +6,7 @@ import useMemberLoans from '../../hooks/useMemberLoans';
 import useLoanPaymentDetails from '../../hooks/useLoanPaymentDetails';
 import server from '../../utils/server';
 import { BackendLoan, LoanPaymentDetails } from '../../types/loanTypes';
-import { MagnifyingGlassIcon, PlusIcon, CheckCircleIcon, XCircleIcon, BanknotesIcon, CreditCardIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, CheckCircleIcon, XCircleIcon, BanknotesIcon, CreditCardIcon, ClockIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
 
@@ -27,13 +27,14 @@ interface UiLoan {
   interestRate?: number;
   dueDate?: string;
   notes?: string;
+  amountToPay?: number;
+  payedAmount?: number;
 }
 
 const tabs: Tab[] = ['all', 'pending', 'active', 'paid', 'rejected'];
 
 const Loans: React.FC = () => {
   const { t } = useLanguage();
-  const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('all');
 
   // hook returns backend-shaped loans
@@ -64,7 +65,9 @@ const Loans: React.FC = () => {
         progress,
         date: l.requestDate ?? '',
         // backend doesn't provide purpose/term/interest/dueDate in sample, keep undefined
-        notes: (l.re as string) || undefined
+        notes: (l.re as string) || undefined,
+        amountToPay: Number(l.amountToPay ?? l.amountTopay ?? 0),
+        payedAmount: Number(l.payedAmount ?? 0)
       } as UiLoan;
 
       return uiLoan;
@@ -113,7 +116,7 @@ const Loans: React.FC = () => {
   });
 
   // Calculate loan terms based on Rwanda market rates
-  const calculateLoanTerms = (amount: number, purpose: string = 'personal') => {
+  const calculateLoanTerms = (amount: number, purpose = 'personal') => {
     if (!amount) return { rate: 0, duration: 0, amountToPay: 0 };
     
     // Special case: 0% rate for amounts under 50K
@@ -182,21 +185,12 @@ const Loans: React.FC = () => {
     }
   };
 
-  // Filtering: tab + search
+  // Filtering: tab
   const filteredLoans = displayLoans
     .filter(loan => {
       if (activeTab === 'all') return true;
       if (activeTab === 'active') return loan.status === 'active' || loan.status === 'approved';
       return loan.status === activeTab;
-    })
-    .filter(loan => {
-      if (!searchTerm) return true;
-      const q = searchTerm.toLowerCase();
-      return (
-        loan.member.toLowerCase().includes(q) ||
-        loan.status.toLowerCase().includes(q) ||
-        loan.amount.toString().includes(q)
-      );
     });
 
   const formatCurrency = (value: number) =>
@@ -272,7 +266,11 @@ const Loans: React.FC = () => {
   const handleStatusChange = async (loanId: number, action: string) => {
     try {
       await server.get(`/loans/actions/${loanId}/${action}`);
-      setDisplayLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: action === 'cancel' ? 'rejected' : action } : l));
+      if (action === 'cancel') {
+        setDisplayLoans(prev => prev.filter(l => l.id !== loanId));
+      } else {
+        setDisplayLoans(prev => prev.map(l => l.id === loanId ? { ...l, status: action } : l));
+      }
       setIsViewModalOpen(false);
       toast.success(action === 'cancel' ? 'Loan cancelled successfully' : (action === 'approved' || action === 'active' ? t('loanApproved') : t('loanRejected')));
       refresh();
@@ -305,34 +303,37 @@ const Loans: React.FC = () => {
     }
 
     setIsProcessingPayment(true);
-    
-    // Fake MTN Mobile Money payment simulation
-    toast.success('Payment request sent to your phone. Please enter your MTN Mobile Money PIN.');
-    
-    // Simulate 3-second payment processing
-    setTimeout(async () => {
-      try {
-        // Fake payment success - update loan via existing API
-        await server.put('/loans/pay', {
-          loanId: selectedLoan.id,
-          amount,
-          phone: paymentPhone
-        });
-        
-        // Update UI
-        refresh();
+
+    try {
+      // Record payment via API
+      const response = await server.put('/loans/pay', {
+        loanId: selectedLoan.id,
+        amount,
+        phone: paymentPhone
+      });
+
+      // Update local state to reflect payment
+      setDisplayLoans(prev => prev.map(loan =>
+        loan.id === selectedLoan.id
+          ? { ...loan, payedAmount: (loan.payedAmount || 0) + amount }
+          : loan
+      ));
+
+      // Refresh payment details if modal is still open
+      if (isPaymentModalOpen) {
         refreshPaymentDetails();
-        setIsPaymentModalOpen(false);
-        setPaymentAmount('');
-        setPaymentPhone('');
-        toast.success('Payment completed successfully! 🎉');
-      } catch (error) {
-        console.error('Payment recording error:', error);
-        toast.error('Payment successful but failed to record. Please refresh the page.');
-      } finally {
-        setIsProcessingPayment(false);
       }
-    }, 3000);
+
+      setIsPaymentModalOpen(false);
+      setPaymentAmount('');
+      setPaymentPhone('');
+      toast.success('Payment completed successfully! 🎉');
+    } catch (error) {
+      console.error('Payment recording error:', error);
+      toast.error('Failed to process payment. Please try again.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
 
@@ -340,10 +341,10 @@ const Loans: React.FC = () => {
   if (loading) return <div className="p-4 text-gray-500">{t('loading')}</div>;
   if (error) return <div className="p-4 text-red-500">{error}</div>;
 
-  // Calculate total active loans
+  // Calculate total active loans (remaining amount to pay)
   const totalActiveLoans = displayLoans
     .filter(loan => loan.status === 'active' || loan.status === 'approved')
-    .reduce((sum, loan) => sum + loan.amount, 0);
+    .reduce((sum, loan) => sum + ((loan.amountToPay ?? loan.amount) - (loan.payedAmount ?? 0)), 0);
 
   return (
     <div className="space-y-6">
@@ -366,12 +367,6 @@ const Loans: React.FC = () => {
           <p className="text-gray-500 dark:text-gray-400">{t('manageLoansDescription')}</p>
         </div>
         <div className="flex space-x-3">
-          <button
-            onClick={() => refresh()}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-          >
-            Refresh
-          </button>
           <button onClick={() => setIsAddModalOpen(true)} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg flex items-center">
             <PlusIcon className="h-5 w-5 mr-2" />
             {t('applyForLoan')}
@@ -394,21 +389,6 @@ const Loans: React.FC = () => {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-          </div>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder={t('searchLoans')}
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-      </div>
 
       {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -714,10 +694,9 @@ const Loans: React.FC = () => {
                 <ol className="text-sm text-yellow-700 dark:text-yellow-400 space-y-1">
                   <li>1. Enter your MTN Mobile Money number</li>
                   <li>2. Enter the payment amount</li>
-                  <li>3. Click "Pay Now" to initiate payment</li>
-                  <li>4. You will receive a USSD prompt on your phone</li>
-                  <li>5. Enter your MTN Mobile Money PIN to complete</li>
+                  <li>3. Click "Pay Now" to complete the payment</li>
                 </ol>
+                <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-2">This is a demo payment form. Payment will be recorded instantly.</p>
               </div>
             ) : (
               <div className="bg-blue-50 dark:bg-blue-900/30 p-6 rounded-xl border border-blue-200 dark:border-blue-700 text-center">
@@ -728,7 +707,7 @@ const Loans: React.FC = () => {
                 </div>
                 <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">Processing Payment...</h4>
                 <p className="text-sm text-blue-700 dark:text-blue-400 mb-3">
-                  Please check your phone for the USSD prompt and enter your MTN Mobile Money PIN.
+                  Recording your payment...
                 </p>
                 <div className="flex items-center justify-center space-x-2">
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
@@ -760,7 +739,7 @@ const Loans: React.FC = () => {
                 {isProcessingPayment ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Waiting for PIN entry...
+                    Processing Payment...
                   </>
                 ) : (
                   <>
@@ -793,9 +772,11 @@ const Loans: React.FC = () => {
               </select>
             </div>
 
-            {loanAmount > 0 && (
-              <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 p-6 rounded-xl border border-green-200 dark:border-green-700">
-                <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Loan Terms Preview</h4>
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 p-6 rounded-xl border border-green-200 dark:border-green-700">
+              <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Loan Terms Preview</h4>
+              {loanAmount === 0 ? (
+                <p className="text-center text-gray-500 dark:text-gray-400">Enter a loan amount to see the calculations</p>
+              ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center">
                     <p className="text-sm text-gray-600 dark:text-gray-400">Interest Rate</p>
@@ -810,8 +791,8 @@ const Loans: React.FC = () => {
                     <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{formatCurrency(amountToPay)}</p>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             <div>
               <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('notes')}</label>

@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import useMemberLoans from '../../hooks/useMemberLoans';
 import useMemberPaymentHistory from '../../hooks/useMemberPaymentHistory';
 import useMemberPenalties from '../../hooks/useMemberPenalties';
-import { 
-  ChartBarIcon, ArrowDownTrayIcon, CurrencyDollarIcon, BanknotesIcon, 
-  UserGroupIcon, ArrowUpIcon, DocumentChartBarIcon
+import useMemberSavings from '../../hooks/useMemberSavings';
+import {
+  ChartBarIcon, ArrowDownTrayIcon, CurrencyDollarIcon, BanknotesIcon,
+  UserGroupIcon, ArrowUpIcon, DocumentChartBarIcon, ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import StatsCard from '../../components/ui/StatsCard';
 import ChartCard from '../../components/ui/ChartCard';
@@ -22,7 +23,7 @@ import * as XLSX from 'xlsx';
 
 
 const processData = (rawData: any) => {
-  const { loans, payments, penalties } = rawData;
+  const { loans, payments, penalties, savings } = rawData;
 
   // Process payment history over months
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -91,7 +92,10 @@ const processData = (rawData: any) => {
   ].filter(item => item.value > 0);
 
   // Calculate totals
-  const totalLoans = loans.reduce((sum: number, loan: any) => sum + (loan.amountTopay || loan.amount || 0), 0);
+  const totalLoans = loans
+    .filter((l: any) => l.status === 'active')
+    .reduce((sum: number, loan: any) => sum + ((loan.amountTopay || 0) - (loan.payedAmount || 0)), 0);
+  const totalSavings = savings.reduce((sum: number, s: any) => sum + (s.amount || 0), 0);
   const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
   const totalPenalties = penalties.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
   const paidPenalties = penalties.filter((p: any) => p.pstatus === 'paid').length;
@@ -102,14 +106,10 @@ const processData = (rawData: any) => {
     loanGrowth,
     loanStatus,
     stats: {
-      totalLoans: loans.length,
-      totalLoanAmount: totalLoans,
+      totalSavings,
+      totalLoans,
       totalPaid,
-      activeLoans: loanStatusCounts.active,
-      totalPenalties: penalties.length,
-      paidPenalties,
-      pendingPenalties,
-      totalPenaltyAmount: totalPenalties
+      totalPenalties: totalPenalties
     }
   };
 };
@@ -120,6 +120,7 @@ const Reports: React.FC = () => {
   const { loans } = useMemberLoans();
   const { payments } = useMemberPaymentHistory();
   const { penalties } = useMemberPenalties();
+  const { savings } = useMemberSavings();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>({
@@ -141,15 +142,15 @@ const Reports: React.FC = () => {
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
   
   useEffect(() => {
-    const processedData = processData({ loans, payments, penalties });
+    const processedData = processData({ loans, payments, penalties, savings });
     setData(processedData);
     setLoading(false);
-  }, [loans, payments, penalties]);
+  }, [loans, payments, penalties, savings]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'RWF',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value);
@@ -229,7 +230,8 @@ const Reports: React.FC = () => {
           {[
             { id: 'overview', icon: ChartBarIcon, label: 'Overview' },
             { id: 'payments', icon: CurrencyDollarIcon, label: 'Payments' },
-            { id: 'loans', icon: BanknotesIcon, label: 'Loans' }
+            { id: 'savings', icon: BanknotesIcon, label: 'Savings' },
+            { id: 'penalties', icon: ExclamationTriangleIcon, label: 'Penalties' }
           ].map(({ id, icon: Icon, label }) => (
             <button
               key={id}
@@ -251,157 +253,251 @@ const Reports: React.FC = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatsCard
-              title="Total Loans"
-              value={data.stats.totalLoans.toString()}
-              icon={<BanknotesIcon className="h-6 w-6" />}
-              iconBgColor="bg-blue-500"
-            />
-            <StatsCard
-              title="Total Loan Amount"
-              value={formatCurrency(data.stats.totalLoanAmount)}
+              title="Total Savings"
+              value={formatCurrency(data.stats.totalSavings)}
               icon={<CurrencyDollarIcon className="h-6 w-6" />}
               iconBgColor="bg-green-500"
             />
             <StatsCard
-              title="Total Paid"
+              title="Outstanding Loans"
+              value={formatCurrency(data.stats.totalLoans)}
+              icon={<BanknotesIcon className="h-6 w-6" />}
+              iconBgColor="bg-blue-500"
+            />
+            <StatsCard
+              title="Total Penalties"
+              value={formatCurrency(data.stats.totalPenalties)}
+              icon={<ExclamationTriangleIcon className="h-6 w-6" />}
+              iconBgColor="bg-red-500"
+            />
+            <StatsCard
+              title="Total Payments"
               value={formatCurrency(data.stats.totalPaid)}
               icon={<ArrowUpIcon className="h-6 w-6" />}
               iconBgColor="bg-yellow-500"
             />
-            <StatsCard
-              title="Active Loans"
-              value={data.stats.activeLoans.toString()}
-              icon={<ChartBarIcon className="h-6 w-6" />}
-              iconBgColor="bg-purple-500"
-            />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ChartCard title="Payment History (12 Months)">
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data.paymentGrowth}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="month" stroke="#6B7280" />
-                    <YAxis stroke="#6B7280" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1F2937',
-                        borderColor: '#374151',
-                        color: '#F9FAFB'
-                      }}
-                      formatter={(value: any) => [formatCurrency(value), 'Amount']}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="amount"
-                      stroke="#10B981"
-                      fill="#10B981"
-                      fillOpacity={0.2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </ChartCard>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">All Transactions</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {(() => {
+                    const allTransactions = [
+                      ...savings.map((s: any) => ({
+                        id: `saving_${s.id}`,
+                        date: s.date,
+                        type: 'Savings',
+                        description: `Savings deposit`,
+                        amount: s.amount,
+                        status: 'Completed'
+                      })),
+                      ...loans.map((l: any) => ({
+                        id: `loan_${l.loanId}`,
+                        date: l.requestDate,
+                        type: 'Loan',
+                        description: `Loan application - ${l.re?.split(':')[0] || 'Personal'}`,
+                        amount: l.amount,
+                        status: l.status === 'active' ? 'Approved' : l.status === 'pending' ? 'Pending' : l.status === 'paid' ? 'Paid' : 'Rejected'
+                      })),
+                      ...payments.map((p: any) => ({
+                        id: `payment_${p.pay_id}`,
+                        date: p.pay_date,
+                        type: 'Payment',
+                        description: `Loan payment for Loan #${p.loanId}`,
+                        amount: -p.amount, // Negative for payments out
+                        status: 'Completed'
+                      })),
+                      ...penalties.map((p: any) => ({
+                        id: `penalty_${p.p_id}`,
+                        date: p.date,
+                        type: 'Penalty',
+                        description: `Penalty - ${p.reason || 'N/A'}`,
+                        amount: -p.amount, // Negative for penalties
+                        status: p.pstatus === 'paid' ? 'Paid' : 'Pending'
+                      }))
+                    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-            <ChartCard title="Loan Status Distribution">
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data.loanStatus}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      {data.loanStatus.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </ChartCard>
+                    return allTransactions.map((transaction) => (
+                      <tr key={transaction.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(transaction.date).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            transaction.type === 'Savings' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' :
+                            transaction.type === 'Loan' ? 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100' :
+                            transaction.type === 'Payment' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' :
+                            'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
+                          }`}>
+                            {transaction.type}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                          {transaction.description}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <span className={transaction.amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                            {transaction.amount >= 0 ? '+' : ''}{formatCurrency(Math.abs(transaction.amount))}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {transaction.status}
+                        </td>
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
       {activeTab === 'payments' && (
         <div className="space-y-6">
-          <ChartCard title="Payment Trend (12 Months)">
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data.paymentGrowth}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="month" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#1F2937',
-                      borderColor: '#374151',
-                      color: '#F9FAFB'
-                    }}
-                    formatter={(value: any) => [formatCurrency(value), 'Amount']}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="amount"
-                    stroke="#10B981"
-                    strokeWidth={3}
-                    dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Loan Payment History</h3>
             </div>
-          </ChartCard>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Loan ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Recorder</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {payments.map((payment: any) => (
+                    <tr key={payment.pay_id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(payment.pay_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600 dark:text-green-400">
+                        {formatCurrency(payment.amount)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {payment.loanId}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {payment.recorder_name}
+                      </td>
+                    </tr>
+                  ))}
+                  {payments.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No payments found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ChartCard title="Payment Count by Month">
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.paymentGrowth}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="month" stroke="#6B7280" />
-                    <YAxis stroke="#6B7280" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1F2937',
-                        borderColor: '#374151',
-                        color: '#F9FAFB'
-                      }}
-                    />
-                    <Bar dataKey="count" fill="#3B82F6" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </ChartCard>
+      {activeTab === 'savings' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Savings History</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {savings.map((saving: any) => (
+                    <tr key={saving.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(saving.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600 dark:text-green-400">
+                        {formatCurrency(saving.amount)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {saving.type || 'Deposit'}
+                      </td>
+                    </tr>
+                  ))}
+                  {savings.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No savings found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
-            <div className="space-y-6">
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Penalty Summary</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Total Penalties</span>
-                    <span className="font-medium">{data.stats.totalPenalties}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Paid</span>
-                    <span className="font-medium text-green-600">{data.stats.paidPenalties}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Pending</span>
-                    <span className="font-medium text-red-600">{data.stats.pendingPenalties}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Total Amount</span>
-                    <span className="font-medium">{formatCurrency(data.stats.totalPenaltyAmount)}</span>
-                  </div>
-                </div>
-              </div>
+      {activeTab === 'penalties' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Penalties History</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reason</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {penalties.map((penalty: any) => (
+                    <tr key={penalty.p_id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {new Date(penalty.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600 dark:text-red-400">
+                        {formatCurrency(penalty.amount)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          penalty.pstatus === 'paid'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
+                            : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
+                        }`}>
+                          {penalty.pstatus === 'paid' ? 'Paid' : 'Pending'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {penalty.reason || 'N/A'}
+                      </td>
+                    </tr>
+                  ))}
+                  {penalties.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No penalties found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

@@ -130,8 +130,10 @@ const getAdminNotifications = async (req, res) => {
   try {
     const decoded = verifyToken(req);
     const { adminId } = req.params;
+    console.log('getAdminNotifications called for adminId:', adminId, 'decoded:', decoded);
     const adminRoles = new Set(['admin', 'sadmin', 'supperadmin', 'super-admin', 'supper-admin']);
     if (!adminRoles.has(decoded.role) || Number(decoded.id) !== Number(adminId)) {
+      console.log('Access denied for admin notifications');
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -139,10 +141,11 @@ const getAdminNotifications = async (req, res) => {
       "SELECT id, title, message, url, is_read, created_at FROM notifications WHERE receiver_type = 'admin' AND receiver_id = ? ORDER BY created_at DESC",
       [adminId]
     );
+    console.log('Admin notifications fetched:', notifications.length, 'items');
 
     return res.json(notifications);
   } catch (error) {
-    console.log(error);
+    console.log('getAdminNotifications error:', error);
     if (error.name === 'JsonWebTokenError' || error.message === 'Unauthorized') return res.status(401).json({ error: 'Unauthorized' });
     return res.status(500).json({ error: error.message });
   }
@@ -175,12 +178,14 @@ const getMemberNotifications = async (req, res) => {
 const getUnreadCount = async (req, res) => {
   try {
     const { type, id } = req.params;
+    console.log('getUnreadCount called for type:', type, 'id:', id);
 
     if (!['admin', 'member'].includes(type)) {
       return res.status(400).json({ error: 'Invalid type' });
     }
 
     const decoded = verifyToken(req);
+    console.log('Decoded token:', decoded);
 
     if (decoded.role === 'member') {
       if (type !== 'member' || Number(decoded.id) !== Number(id)) return res.status(403).json({ error: 'Access denied' });
@@ -194,10 +199,11 @@ const getUnreadCount = async (req, res) => {
       "SELECT COUNT(*) as unread FROM notifications WHERE receiver_type = ? AND receiver_id = ? AND is_read = 0",
       [type, id]
     );
+    console.log('Unread count result:', result[0].unread);
 
     return res.json({ unread: result[0].unread });
   } catch (error) {
-    console.log(error);
+    console.log('getUnreadCount error:', error);
     if (error.name === 'JsonWebTokenError' || error.message === 'Unauthorized') return res.status(401).json({ error: 'Unauthorized' });
     return res.status(500).json({ error: error.message });
   }

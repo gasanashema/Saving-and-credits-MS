@@ -46,6 +46,7 @@ import MemberReports from "./member/pages/Reports";
 import MemberNotifications from "./member/pages/Notifications";
 import MemberSettings from "./member/pages/Settings";
 import MemberChat from "./member/pages/Chat";
+import HelpCenter from "./member/pages/HelpCenter";
 
 export function App() {
   return (
@@ -106,6 +107,7 @@ export function App() {
                   <Route path="penalties" element={<MemberPenalties />} />
                   <Route path="reports" element={<MemberReports />} />
                   <Route path="notifications" element={<MemberNotifications />} />
+                  <Route path="help" element={<HelpCenter />} />
                   <Route path="chat" element={<MemberChat />} />
                   <Route path="settings" element={<MemberSettings />} />
                 </Route>
