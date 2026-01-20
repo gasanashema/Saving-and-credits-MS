@@ -131,12 +131,11 @@ const getAllSavings = async (req, res) => {
       }
     }
 
-    let query = "SELECT COALESCE(members.id, members.member_id) AS id, `sav_id`, `nid`, `firstName`, `lastName`, telephone, savings.date, savings.shareValue, `numberOfShares`, (savings.shareValue * savings.numberOfShares) as total FROM `members` INNER JOIN savings ON (members.id = savings.memberId OR members.member_id = savings.memberId)";
+    let query = "SELECT members.id AS id, `sav_id`, `nid`, `firstName`, `lastName`, telephone, savings.date, savings.shareValue, `numberOfShares`, (savings.shareValue * savings.numberOfShares) as total FROM `members` INNER JOIN savings ON members.id = savings.memberId";
     const params = [Number(actualLimit)];
 
     if (memberId) {
-      query += " WHERE (members.id = ? OR members.member_id = ?)";
-      params.unshift(memberId);
+      query += " WHERE members.id = ?";
       params.unshift(memberId);
     }
     
@@ -153,7 +152,7 @@ const getSavings = async (req, res) => {
 
   try {
     const [users] = await conn.query(
-      "SELECT COALESCE(members.id, members.member_id) AS id, `sav_id`, `nid`, `firstName`, `lastName`, savings.shareValue, `numberOfShares`, (savings.shareValue*`numberOfShares`) as total FROM `members` LEFT JOIN savings ON (members.id = savings.memberId OR members.member_id = savings.memberId) AND savings.date=?",
+      "SELECT members.id AS id, `sav_id`, `nid`, `firstName`, `lastName`, savings.shareValue, `numberOfShares`, (savings.shareValue*`numberOfShares`) as total FROM `members` LEFT JOIN savings ON members.id = savings.memberId AND savings.date=?",
       [date]
     );
     return res.json(users);
@@ -182,6 +181,43 @@ const getSavingSelectList = async (req, res) => {
     );
     return res.json(lists);
   } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+
+const getMembersSavingsOverview = async (req, res) => {
+  try {
+    const { search } = req.query;
+    let query = `
+      SELECT 
+        m.id, 
+        m.nid, 
+        m.firstName, 
+        m.lastName, 
+        m.telephone,
+        (SELECT COALESCE(SUM(numberOfShares * shareValue), 0) FROM savings WHERE memberId = m.id) as totalSavings,
+        (SELECT MAX(date) FROM savings WHERE memberId = m.id) as lastSavingDate,
+        (SELECT COUNT(*) FROM loan WHERE memberId = m.id AND status = 'active') as activeLoanCount,
+        (SELECT COALESCE(SUM(CAST(amountTopay AS DECIMAL(10,2)) - CAST(payedAmount AS DECIMAL(10,2))), 0) FROM loan WHERE memberId = m.id AND status = 'active') as activeLoanAmount
+      FROM members m
+    `;
+    
+    const params = [];
+
+    if (search) {
+      query += ` WHERE m.firstName LIKE ? OR m.lastName LIKE ? OR m.nid LIKE ?`;
+      const searchPattern = `%${search}%`;
+      params.push(searchPattern, searchPattern, searchPattern);
+    }
+    
+    query += ` ORDER BY totalSavings DESC`;
+
+    const [overview] = await conn.query(query, params);
+    
+    return res.json(overview);
+  } catch (error) {
+    console.error('getMembersSavingsOverview error:', error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -242,5 +278,6 @@ module.exports = {
   completeSaving,
   getSavingChanges,
   getAllSavings,
-  getMemberSavings
+  getMemberSavings,
+  getMembersSavingsOverview
 };

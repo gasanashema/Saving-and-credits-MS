@@ -1,9 +1,9 @@
 import React from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
 import useUnreadChats from '../../../hooks/useUnreadChats';
-import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon, ExclamationTriangleIcon, CubeIcon } from '@heroicons/react/24/outline';
 interface SidebarProps {
   toggleSidebar: () => void;
 }
@@ -34,6 +34,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     path: '/admin/loans',
     name: t('loans'),
     icon: <BanknotesIcon className="w-6 h-6" />
+  }, {
+    path: '/admin/loan-packages',
+    name: 'Loan Packages',
+    icon: <CubeIcon className="w-6 h-6" />
   }, {
     path: '/admin/repayments',
     name: t('repayments'),

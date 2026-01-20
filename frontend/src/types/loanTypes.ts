@@ -55,3 +55,14 @@ export interface LoanPaymentDetails {
   };
 }
 
+export interface LoanPackage {
+  id: number;
+  name: string;
+  min_savings: number;
+  min_membership_months: number;
+  loan_multiplier: number;
+  repayment_duration_months: number;
+  interest_rate: number;
+  description: string;
+  status: 'active' | 'inactive';
+}

@@ -14,6 +14,13 @@ const {
   getLoanById,
 } = require("../services/loan.service");
 const { requestLoan, calculateMaxLoan } = require("../services/autoLoan.service");
+const { 
+  getAllPackages, 
+  getPackageById, 
+  createPackage, 
+  updatePackage 
+} = require("../services/loan-package.service");
+
 const loanRouter = express.Router();
 
 loanRouter.post("/", addLoan);
@@ -29,14 +36,30 @@ loanRouter.get("/member-payment-history/:memberId", getMemberPaymentHistory);
 loanRouter.put("/pay", payLoan);
 loanRouter.get("/payhistory/:id", getLoanHistory);
 
-// Auto-Loan Routes
+// Loan Packages Routes
+loanRouter.get("/packages/all", getAllPackages);
+loanRouter.get("/packages/:id", async (req, res) => {
+  try {
+    const pkg = await getPackageById(req.params.id);
+    if (!pkg) return res.status(404).json({ error: "Package not found" });
+    res.json(pkg);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch package" });
+  }
+});
+loanRouter.post("/packages", createPackage);
+loanRouter.put("/packages/:id", updatePackage);
+
+// Auto-Loan / Eligibility Routes
 loanRouter.post("/auto", requestLoan);
 loanRouter.get("/eligibility/:memberId", async (req, res) => {
   try {
-    const result = await calculateMaxLoan(req.params.memberId);
+    const { packageId } = req.query;
+    const result = await calculateMaxLoan(req.params.memberId, packageId);
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Failed to check eligibility" });
   }
 });
+
 module.exports = loanRouter;

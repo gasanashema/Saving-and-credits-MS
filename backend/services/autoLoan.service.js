@@ -1,11 +1,5 @@
 const db = require('../db/db');
 
-const LOAN_CONFIG = {
-  SAVINGS_MULTIPLIER: 3,
-  MIN_MEMBERSHIP_MONTHS: 3,
-  CONSISTENCY_CHECK_MONTHS: 6
-};
-
 // Helper: Calculate months difference
 const getMonthDiff = (d1, d2) => {
   let months;
@@ -15,42 +9,71 @@ const getMonthDiff = (d1, d2) => {
   return months <= 0 ? 0 : months;
 };
 
-const calculateMaxLoan = async (memberId) => {
+const calculateMaxLoan = async (memberId, packageId = null) => {
   try {
     const conn = await db.getConnection();
     
-    // 1. Check Membership Duration (via members.created_at)
-    // We expect the 'created_at' column to exist on members table.
+    // 1. Fetch Loan Package Config
+    let packageRules = {
+      min_savings: 0,
+      min_membership_months: 3, // Default fallback
+      loan_multiplier: 3.0,     // Default fallback
+      repayment_duration_months: 12,
+      interest_rate: 5,
+      name: 'Standard (Default)'
+    };
+
+    if (packageId) {
+      const [pkgs] = await conn.query("SELECT * FROM loan_packages WHERE id = ?", [packageId]);
+      if (pkgs.length > 0) {
+        const p = pkgs[0];
+        packageRules = {
+          min_savings: Number(p.min_savings),
+          min_membership_months: p.min_membership_months,
+          loan_multiplier: Number(p.loan_multiplier),
+          repayment_duration_months: p.repayment_duration_months,
+          interest_rate: Number(p.interest_rate),
+          name: p.name
+        };
+      }
+    } else {
+       // If no package selected, maybe pick the "Standard Loan" or highest multiplier to show potential?
+       // For now, let's try to find a 'Standard Loan' or use defaults.
+       const [pkgs] = await conn.query("SELECT * FROM loan_packages WHERE name LIKE '%Standard%' LIMIT 1");
+       if (pkgs.length > 0) {
+          const p = pkgs[0];
+          packageRules = {
+            min_savings: Number(p.min_savings),
+            min_membership_months: p.min_membership_months,
+            loan_multiplier: Number(p.loan_multiplier),
+            repayment_duration_months: p.repayment_duration_months,
+            interest_rate: Number(p.interest_rate),
+            name: p.name
+          };
+       }
+    }
+    
+    // 2. Check Membership Duration
     const [memberData] = await conn.query(
-      "SELECT created_at FROM members WHERE id = ?",
+      "SELECT created_at, firstName, lastName FROM members WHERE id = ?",
       [memberId]
     );
 
     if (memberData.length === 0) {
+       conn.release();
        return { eligible: false, limit: 0, reason: "Member not found." };
     }
 
     const joinDate = memberData[0].created_at ? new Date(memberData[0].created_at) : new Date();
     const membershipMonths = getMonthDiff(joinDate, new Date());
     
-    if (membershipMonths < LOAN_CONFIG.MIN_MEMBERSHIP_MONTHS) {
+    if (membershipMonths < packageRules.min_membership_months) {
+      conn.release();
       return { 
         eligible: false, 
         limit: 0, 
-        reason: `Membership duration (${membershipMonths} months) is less than required minimum (${LOAN_CONFIG.MIN_MEMBERSHIP_MONTHS} months).` 
+        reason: `Membership duration (${membershipMonths} months) is less than required minimum (${packageRules.min_membership_months} months) for ${packageRules.name}.` 
       };
-    }
-
-    // 2. Check Active Loans (Unpaid)
-    // Assuming 'active' or 'pending' means unpaid/in-progress.
-    // Also check if 'payedAmount' < 'amountTopay' for active loans just in case.
-    const [activeLoans] = await conn.query(
-      "SELECT * FROM loan WHERE memberId = ? AND status IN ('active', 'pending')", 
-      [memberId]
-    );
-    
-    if (activeLoans.length > 0) {
-      return { eligible: false, limit: 0, reason: "Member has an active or pending loan." };
     }
 
     // 3. Calculate Total Savings
@@ -60,27 +83,32 @@ const calculateMaxLoan = async (memberId) => {
     );
     const totalSavings = Number(savings[0].total || 0);
     
-    if (totalSavings <= 0) {
-      return { eligible: false, limit: 0, reason: "Total savings is zero." };
+    if (totalSavings < packageRules.min_savings) {
+      conn.release();
+      return { 
+        eligible: false, 
+        limit: 0, 
+        reason: `Total savings (${totalSavings}) is less than required minimum (${packageRules.min_savings}) for ${packageRules.name}.` 
+      };
     }
 
     // 4. Calculate Factors
-    let baseLimit = totalSavings * LOAN_CONFIG.SAVINGS_MULTIPLIER;
+    let baseLimit = totalSavings * packageRules.loan_multiplier;
     let consistencyFactor = 1.0;
     let repaymentFactor = 1.0;
 
-    // Consistency: Check savings in last N months
+    // Consistency: Check savings in last 6 months (hardcoded or config)
+    const CONSISTENCY_CHECK_MONTHS = 6;
     const [consistency] = await conn.query(
       "SELECT COUNT(DISTINCT DATE_FORMAT(date, '%Y-%m')) as months_saved FROM savings WHERE memberId = ? AND date >= DATE_SUB(NOW(), INTERVAL ? MONTH)",
-      [memberId, LOAN_CONFIG.CONSISTENCY_CHECK_MONTHS]
+      [memberId, CONSISTENCY_CHECK_MONTHS]
     );
     const monthsSaved = consistency[0].months_saved || 0;
     
-    // Simple logic: If saved < 50% of check period, reduce factor
-    if (monthsSaved < (LOAN_CONFIG.CONSISTENCY_CHECK_MONTHS / 2)) {
+    if (monthsSaved < (CONSISTENCY_CHECK_MONTHS / 2)) {
       consistencyFactor = 0.8;
     } else if (monthsSaved === 0) {
-        consistencyFactor = 0.5;
+      consistencyFactor = 0.5;
     }
 
     // Repayment: Check penalties
@@ -90,30 +118,55 @@ const calculateMaxLoan = async (memberId) => {
     );
     if (penalties[0].count > 0) {
         repaymentFactor = 0.0; // Ineligible if active penalties
-        return { eligible: false, limit: 0, reason: "Member has unpaid penalties." };
     }
 
-    // Final Calculation
+    // Check early repayment bonus (simple implementation: if paid previous loans on time/early)
+    // For now, let's keep repaymentFactor simple based on penalties as specific alg was not detailed beyond "Configurable/repayment data"
+    // We can add a query to boost factor if they have existing PAID loans with no penalties.
+    const [pastLoans] = await conn.query(
+        "SELECT count(*) as count FROM loan WHERE memberId = ? AND status = 'paid'",
+        [memberId]
+    );
+    if (pastLoans[0].count > 0 && repaymentFactor > 0) {
+        repaymentFactor += 0.1; // 10% bonus for past good behavior
+    }
+
+    // Final Limit Calculation
     const maxLoan = Math.floor(baseLimit * consistencyFactor * repaymentFactor);
 
-    // Log the calculation (Fire and forget, or await)
+    // 5. Active Loan Rule: total_active_loans_amount + requested_loan <= max_allowed
+    // We calculate "remaining capacity".
+    // Get current active loans amount (principal)
+    const [activeLoans] = await conn.query(
+       "SELECT SUM(amount) as totalActive FROM loan WHERE memberId = ? AND status IN ('active', 'approved', 'pending')",
+       [memberId]
+    );
+    const currentActiveAmount = Number(activeLoans[0].totalActive || 0);
+    
+    const remainingCapacity = Math.max(0, maxLoan - currentActiveAmount);
+
+    // Log the calculation
     await conn.query(
       "INSERT INTO loan_eligibility_logs (member_id, total_savings, base_limit, consistency_factor, repayment_factor, final_limit, is_eligible) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [memberId, totalSavings, baseLimit, consistencyFactor, repaymentFactor, maxLoan, maxLoan > 0]
+      [memberId, totalSavings, baseLimit, consistencyFactor, repaymentFactor, maxLoan, remainingCapacity > 0]
     );
 
     conn.release();
 
     return {
-      eligible: maxLoan > 0,
-      limit: maxLoan,
+      eligible: remainingCapacity > 0,
+      limit: remainingCapacity, // The user can only borrow what's left of their capacity
+      maxTotalLimit: maxLoan,   // The total they could have if they had 0 loans
+      currentActiveAmount,
       factors: {
         totalSavings,
         baseLimit,
         consistencyFactor,
-        repaymentFactor
+        repaymentFactor,
+        package: packageRules.name
       },
-      reason: maxLoan > 0 ? "Eligible" : "Calculated limit is 0"
+      packageRules,
+      reason: remainingCapacity > 0 ? "Eligible" : `Credit limit reached. Total limit: ${maxLoan}, Active: ${currentActiveAmount}`
     };
 
   } catch (error) {
@@ -123,7 +176,7 @@ const calculateMaxLoan = async (memberId) => {
 };
 
 const requestLoan = async (req, res) => {
-  const { memberId, amount, re, duration } = req.body;
+  const { memberId, amount, re, duration, packageId } = req.body;
   
   if (!memberId || !amount || !duration) {
     return res.status(400).json({ error: "Missing required fields" });
@@ -131,7 +184,7 @@ const requestLoan = async (req, res) => {
 
   try {
     // 1. Check Eligibility
-    const eligibility = await calculateMaxLoan(memberId);
+    const eligibility = await calculateMaxLoan(memberId, packageId);
     
     if (!eligibility.eligible) {
       return res.status(403).json({ error: "Not eligible for loan", details: eligibility.reason });
@@ -146,35 +199,27 @@ const requestLoan = async (req, res) => {
     }
 
     // 2. Prepare Loan Data
-    const rate = 5; // Default from schema default or config
-    // Simple interest for AmountToPay: P + (P * R * T / 12)?? 
-    // Wait, typical formula. Assuming R is monthly or annual?
-    // User schema says 'rate default 5'. Usually monthly in these systems (5%).
-    // Let's assume 5% per month (common in informal groups) OR 5% annual.
-    // Given the previous code `amount + (amount * rate * duration / 12)`, it treated '5' as 5% (0.05) if rate was passed as 0.05.
-    // But schema stores `decimal(10,0)`. So stores '5'.
-    // Use standard formula from Loans.tsx: `amount + (amount * (rate/100) * duration)`?
-    // Let's stick to simple: amount * (1 + rate/100 * duration) or similar.
-    // I will use `amountTopay` calculation similar to `Loans.tsx` implementation.
-    // Loans.tsx: `rate = Number(newLoan.interestRate) / 100` -> 0.05
-    // `amountTopay = amount + (amount * rate * duration / 12)` -> Annual rate logic?
-    // If schema default is 5, it's likely 5%.
-    
+    // Enforce rate from package if available
+    let rate = 5;
+    if (eligibility.packageRules && eligibility.packageRules.interest_rate !== undefined) {
+        rate = eligibility.packageRules.interest_rate;
+    }
+
     const numericAmount = Number(amount);
-    const amountTopay = numericAmount + (numericAmount * (rate / 100) * (duration / 12)); // Assuming annual rate logic from frontend
+    // Formula: Principal + (Principal * (Rate/100) * (Duration/12)) - Annual Rate Logic
+    const amountTopay = numericAmount + (numericAmount * (rate / 100) * (duration / 12));
 
     const conn = await db.getConnection();
     const result = await conn.query(
-      "INSERT INTO loan (memberId, amount, rate, duration, re, requestDate, amountTopay, status) VALUES (?, ?, ?, ?, ?, NOW(), ?, 'approved')",
-      [memberId, numericAmount, rate, duration, re || 'Auto-Request', amountTopay]
+      "INSERT INTO loan (memberId, amount, rate, duration, re, requestDate, amountTopay, status, package_id) VALUES (?, ?, ?, ?, ?, NOW(), ?, 'pending', ?)",
+      [memberId, numericAmount, rate, duration, re || 'Loan Request', amountTopay, packageId || null]
     );
     conn.release();
 
     return res.json({ 
         success: true, 
-        message: "Loan requested and approved automatically", 
+        message: "Loan request submitted for approval", 
         loanId: result[0].insertId,
-        details: eligibility 
     });
 
   } catch (error) {

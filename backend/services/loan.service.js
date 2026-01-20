@@ -5,7 +5,7 @@ const { createEventNotification } = require('../utilities/notify.helper');
 
 const addLoan = async (req, res) => {
   try {
-    const { amount, duration, re, rate, amountTopay, memberId: bodyMemberId } = req.body;
+    const { amount, duration, re, rate, amountTopay, memberId: bodyMemberId, packageId } = req.body;
     const authHeader = req.headers.authorization;
     let memberId = bodyMemberId ? parseInt(bodyMemberId) : 1; // default
 
@@ -23,8 +23,8 @@ const addLoan = async (req, res) => {
     const rateNum = parseFloat(rate);
     const amountTopayNum = parseFloat(amountTopay);
     const [loan] = await conn.query(
-      "INSERT INTO `loan`(`requestDate`, `re`, `amount`, `duration`,`memberId`, `amountTopay`,`rate`) VALUES (?,?,?,?,?,?,?)",
-      [dt, re, amountNum, durationNum, memberId, amountTopayNum, rateNum]
+      "INSERT INTO `loan`(`requestDate`, `re`, `amount`, `duration`,`memberId`, `amountTopay`,`rate`, `package_id`) VALUES (?,?,?,?,?,?,?,?)",
+      [dt, re, amountNum, durationNum, memberId, amountTopayNum, rateNum, packageId || null]
     );
 
     // Notify all admins about new loan application

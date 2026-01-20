@@ -4,6 +4,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import useMemberLoans from '../../hooks/useMemberLoans';
 import useLoanEligibility from '../../hooks/useLoanEligibility';
+import useLoanPackages from '../../hooks/useLoanPackages';
 import useLoanPaymentDetails from '../../hooks/useLoanPaymentDetails';
 import server from '../../utils/server';
 import { BackendLoan, LoanPaymentDetails } from '../../types/loanTypes';
@@ -99,11 +100,21 @@ const Loans: React.FC = () => {
   const { user } = useAuth();
   const { eligibility, loading: eligibilityLoading, refresh: refreshEligibility } = useLoanEligibility();
 
+  const { packages, loading: packagesLoading } = useLoanPackages();
+  const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
+
+  // Set default package when packages load
+  useEffect(() => {
+    if (packages.length > 0 && !selectedPackageId) {
+      setSelectedPackageId(packages[0].id);
+    }
+  }, [packages, selectedPackageId]);
+
   useEffect(() => {
     if (isAddModalOpen) {
-      refreshEligibility();
+      refreshEligibility(selectedPackageId || undefined);
     }
-  }, [isAddModalOpen, refreshEligibility]);
+  }, [isAddModalOpen, refreshEligibility, selectedPackageId]);
 
   const maxLoanLimit = eligibility?.limit || 0;
   const isEligible = eligibility?.eligible || false;
@@ -126,10 +137,27 @@ const Loans: React.FC = () => {
     amount: ''
   });
 
-  // Calculate loan terms based on Rwanda market rates
+  // Calculate loan terms based on Package or Rwanda market rates
   const calculateLoanTerms = (amount: number, purpose = 'personal') => {
     if (!amount) return { rate: 0, duration: 0, amountToPay: 0 };
 
+    const selectedPkg = packages.find(p => p.id === selectedPackageId);
+
+    if (selectedPkg) {
+        const rate = Number(selectedPkg.interest_rate); // Monthly or Annual? Assuming Annual as per previous logic being 18%
+        // But backend schema default was 5. If 5 is monthly -> 60% annual.
+        // If 5 is annual -> 5% annual.
+        // Let's assume rate from package is ANNUAL percentage for consistency with below logic if > 1.
+        // If logic below uses 18 (18%), then package rate 5 means 5%?
+        // Let's assume package.interest_rate is ANNUAL percentage.
+        
+        const duration = selectedPkg.repayment_duration_months;
+        const monthlyRate = rate / 100 / 12; // Simple compound formula used below
+        const amountToPay = amount * Math.pow(1 + monthlyRate, duration);
+        return { rate, duration, amountToPay };
+    }
+
+    // Fallback Legacy Logic
     // Special case: 0% rate for amounts under 50K
     if (amount < 50000) {
       return { rate: 0, duration: 4, amountToPay: amount };
@@ -266,13 +294,14 @@ const Loans: React.FC = () => {
       const amount = Number(parseFormattedNumber(newLoan.amount));
       const { rate, duration, amountToPay } = calculateLoanTerms(amount);
 
-      await server.post('/loans', {
+      const selectedPkg = packages.find(p => p.id === selectedPackageId);
+      
+      await server.post('/loans/auto', {
+        memberId: user?.id, // Ensure memberId is sent
         amount,
-        duration,
-        rate,
-        amountTopay: amountToPay,
+        duration, // Calculated from package
         re: `${newLoan.purpose}: ${newLoan.notes}`.trim(),
-        status: 'pending'
+        packageId: selectedPkg?.id
       });
 
       setNewLoan({ amount: '', purpose: 'business', notes: '' });
@@ -788,6 +817,29 @@ const Loans: React.FC = () => {
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title={t('applyForLoan')} size="lg">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
+            
+            {/* Loan Package Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Loan Package</label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {packages.map(pkg => (
+                  <div 
+                    key={pkg.id}
+                    onClick={() => setSelectedPackageId(pkg.id)}
+                    className={`cursor-pointer rounded-lg p-4 border-2 transition-all ${
+                      selectedPackageId === pkg.id 
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                        : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                    }`}
+                  >
+                    <h3 className="font-semibold text-gray-900 dark:text-white">{pkg.name}</h3>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                       Rate: {pkg.interest_rate}% | Duration: {pkg.repayment_duration_months}m
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
 
             {/* Eligibility Banner */}
