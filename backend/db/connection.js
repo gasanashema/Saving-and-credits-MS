@@ -11,7 +11,8 @@ const conn = mysql
     host: "localhost",
     user: "phpmyadmin",
     password: "disaster",
-    database: "ikibina_app",
+    database: "ikibina_new",
+    // database: "ikibina_app",
     port: 3306,
   })
   .promise();
