@@ -33,10 +33,21 @@ const processAdminData = (rawData: any) => {
   const { members, savings, loans, payments, penalties } = rawData;
 
   // Stats
+  // Stats
+  // Ensure all values are parsed as numbers to avoid string concatenation
   const totalMembers = members.length;
-  const totalSavings = savings.reduce((sum: number, s: any) => sum + (s.total || s.amount || 0), 0);
-  const activeLoansAmount = loans.filter((l: any) => l.lstatus === 'active').reduce((sum: number, l: any) => sum + (l.amount || 0), 0);
-  const unpaidPenalties = penalties.filter((p: any) => p.pstatus !== 'paid').reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+  const totalSavings = savings.reduce((sum: number, s: any) => sum + Number(s.total || s.amount || 0), 0);
+  const activeLoansAmount = loans.filter((l: any) => l.lstatus === 'active' || l.status === 'active').reduce((sum: number, l: any) => sum + Number(l.amount || 0), 0);
+  
+  // Calculate Net Savings: Total Savings - Active Loans
+  const netSavings = totalSavings - activeLoansAmount;
+
+  // Calculate Profits: Interests from PAID loans (PayedAmount - Principal)
+  const profits = loans
+    .filter((l: any) => l.lstatus === 'paid' || l.status === 'paid')
+    .reduce((sum: number, l: any) => sum + (Number(l.payedAmount || 0) - Number(l.amount || 0)), 0);
+
+  const unpaidPenalties = penalties.filter((p: any) => p.pstatus !== 'paid').reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
 
 
 
@@ -69,9 +80,12 @@ const processAdminData = (rawData: any) => {
   return {
     stats: {
       totalMembers,
+      totalMembers,
       totalSavings,
+      netSavings, // Total - Active Loans
       activeLoansAmount,
-      unpaidPenalties
+      unpaidPenalties,
+      profits // Revenue from paid loans
     },
     recentActivity
   };
@@ -81,7 +95,7 @@ const Dashboard: React.FC = () => {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>({
-    stats: { totalMembers: 0, totalSavings: 0, activeLoansAmount: 0, unpaidPenalties: 0 },
+    stats: { totalMembers: 0, totalSavings: 0, netSavings: 0, activeLoansAmount: 0, unpaidPenalties: 0, profits: 0 },
     recentActivity: []
   });
 
@@ -109,6 +123,19 @@ const Dashboard: React.FC = () => {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value);
+  };
+
+  const formatCompactCurrency = (value: number) => {
+    if (value >= 1000000) {
+      return new Intl.NumberFormat('en-RW', {
+        style: 'currency',
+        currency: 'RWF',
+        notation: 'compact',
+        compactDisplay: 'short',
+        maximumFractionDigits: 1
+      }).format(value);
+    }
+    return formatCurrency(value);
   };
 
   const container = {
@@ -150,13 +177,13 @@ const Dashboard: React.FC = () => {
           <StatsCard title={t('totalMembers')} value={data.stats.totalMembers.toString()} icon={<UsersIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-blue-500" />
         </motion.div>
         <motion.div variants={item}>
-          <StatsCard title={t('totalSavings')} value={formatCurrency(data.stats.totalSavings)} icon={<CurrencyDollarIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-emerald-500" />
+          <StatsCard title={t('totalSavings')} value={formatCompactCurrency(data.stats.netSavings)} icon={<CurrencyDollarIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-emerald-500" />
         </motion.div>
         <motion.div variants={item}>
-          <StatsCard title={t('activeLoans')} value={formatCurrency(data.stats.activeLoansAmount)} icon={<BanknotesIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-amber-500" />
+          <StatsCard title={t('activeLoans')} value={formatCompactCurrency(data.stats.activeLoansAmount)} icon={<BanknotesIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-amber-500" />
         </motion.div>
         <motion.div variants={item}>
-          <StatsCard title="Unpaid Penalties" value={formatCurrency(data.stats.unpaidPenalties)} icon={<ExclamationTriangleIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-red-500" />
+          <StatsCard title="Profits" value={formatCompactCurrency(data.stats.profits)} icon={<BanknotesIcon className="h-6 w-6" />} bgColor="bg-white dark:bg-gray-800" textColor="text-gray-800 dark:text-white" iconBgColor="bg-blue-500" />
         </motion.div>
       </div>
       {/* Recent Activity */}
