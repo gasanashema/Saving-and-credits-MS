@@ -15,5 +15,5 @@ cron.schedule("0 0 * * 0", async () => {
   await AutoPenalityService();
 });
 app.listen(port, async () => {
-  console.log(`app started on http://localhost:${port}`);
+  console.log(`app started on ${port}`);
 });

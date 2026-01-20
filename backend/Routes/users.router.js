@@ -8,7 +8,7 @@ const {
   resetPassword,
   getAdminContacts,
 } = require("../services/users.service");
-const usersRouter = express.Router();
+const 222222222222222222222222222222222222222222222222222222222usersRouter = express.Router();
 
 usersRouter.get("/", getAllUsers);
 usersRouter.get("/:id", (req, res) => res.json("users router"));

@@ -8,12 +8,12 @@ const conn = mysql
     // password: process.env.DB_PASSWORD,
     // database: process.env.DB_NAME,
     // port: process.env.DB_PORT,
-    host: "localhost",
-    user: "phpmyadmin",
-    password: "disaster",
-    database: "ikibina_new",
+    host: "gateway01.ap-northeast-1.prod.aws.tidbcloud.com",
+    user: "4T7Zfkh3ydAm1ya.root",
+    password: "CAUoZW1xhInQvpjo",
+    database: "my_app_db",
     // database: "ikibina_app",
-    port: 3306,
+    port: 4000,
   })
   .promise();
   

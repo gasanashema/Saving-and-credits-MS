@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const server = axios.create({
-  baseURL: "http://localhost:3000/api/ikv1/",
+  baseURL: "https://saving-and-credits-ms.onrender.com/api/ikv1/",
 });
 
 // Add request interceptor to include token dynamically
