@@ -18,6 +18,12 @@ import useAllMembers from "../../hooks/useAllMembers";
 import useMemberSavings from "../../hooks/useMemberSavings";
 import server from "../../utils/server";
 
+interface SavingType {
+  value: number;
+  name: string;
+  amount: number;
+}
+
 const Members: React.FC = () => {
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,6 +40,7 @@ const Members: React.FC = () => {
     email: "",
     telephone: "",
     balance: 0,
+    role: "member", // Default role
   });
   const [errors, setErrors] = useState({
     nid: "",
@@ -41,10 +48,14 @@ const Members: React.FC = () => {
     lastName: "",
     email: "",
     telephone: "",
+
     balance: "",
   });
   // Add this line for savings data state
   const [savingsData, setSavingsData] = useState<MemberSavings[]>([]);
+  const [savingTypes, setSavingTypes] = useState<SavingType[]>([]);
+  const [numberOfShares, setNumberOfShares] = useState(1);
+  const [selectedSavingType, setSelectedSavingType] = useState<number | "">("");
 
   // Update the useEffect to use the data from useMemberSavings hook
   const { savings } = useMemberSavings(selectedMember?.id.toString());
@@ -52,6 +63,30 @@ const Members: React.FC = () => {
   useEffect(() => {
     setMembersList(members);
   }, [members]);
+
+  useEffect(() => {
+    const fetchSavingTypes = async () => {
+      try {
+        const response = await server.get("/saving/type/list");
+        setSavingTypes(response.data);
+      } catch (error) {
+        console.error("Error fetching saving types:", error);
+      }
+    };
+    fetchSavingTypes();
+  }, []);
+
+  useEffect(() => {
+    const fetchSavingTypes = async () => {
+      try {
+        const response = await server.get("/saving/type/list");
+        setSavingTypes(response.data);
+      } catch (error) {
+        console.error("Error fetching saving types:", error);
+      }
+    };
+    fetchSavingTypes();
+  }, []);
 
   useEffect(() => {
     if (selectedMember && savings) {
@@ -67,7 +102,7 @@ const Members: React.FC = () => {
   const closeModal = () => {
     setIsModalOpen(false);
   };
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setNewMember({
       ...newMember,
@@ -86,14 +121,7 @@ const Members: React.FC = () => {
     const newErrors = {
       ...errors,
     };
-    // Validate nid
-    if (!newMember.nid.trim()) {
-      newErrors.nid = "National ID is required";
-      isValid = false;
-    } else if (newMember.nid.length !== 16) {
-      newErrors.nid = "National ID must be 16 digits";
-      isValid = false;
-    }
+    
     // Validate firstName
     if (!newMember.firstName.trim()) {
       newErrors.firstName = t("firstNameRequired");
@@ -113,19 +141,38 @@ const Members: React.FC = () => {
       newErrors.email = t("invalidEmail");
       isValid = false;
     }
-    // Validate telephone (required)
-    if (!newMember.telephone.trim()) {
-      newErrors.telephone = "Phone number is required";
-      isValid = false;
-    } else if (!/^\+?[0-9]{10,15}$/.test(newMember.telephone)) {
-      newErrors.telephone = t("invalidPhone");
-      isValid = false;
+
+    // Member-specific validations
+    if (newMember.role === 'member') {
+       // Validate nid
+        if (!newMember.nid.trim()) {
+          newErrors.nid = "National ID is required";
+          isValid = false;
+        } else if (newMember.nid.length !== 16) {
+          newErrors.nid = "National ID must be 16 digits";
+          isValid = false;
+        }
+        // Validate telephone (required)
+        if (!newMember.telephone.trim()) {
+          newErrors.telephone = "Phone number is required";
+          isValid = false;
+        } else if (!/^\+?[0-9]{10,15}$/.test(newMember.telephone)) {
+          newErrors.telephone = t("invalidPhone");
+          isValid = false;
+        }
+        // Validate balance
+        // for members, balance is calculated from shares, so we don't validate the raw balance field anymore
+        if (!selectedSavingType) {
+             newErrors.balance = "Please select a share type"; // Reuse balance error field for simplicity or add new error field
+             isValid = false; 
+        }
+    } else {
+        // Clear member errors if switching to admin
+        newErrors.nid = "";
+        newErrors.telephone = "";
+        newErrors.balance = "";
     }
-    // Validate balance
-    if (isNaN(Number(newMember.balance)) || Number(newMember.balance) < 0) {
-      newErrors.balance = t("invalidBalance");
-      isValid = false;
-    }
+
     setErrors(newErrors);
     return isValid;
   };
@@ -142,7 +189,11 @@ const Members: React.FC = () => {
         lastName: newMember.lastName,
         telephone: newMember.telephone,
         email: newMember.email,
-        balance: Number(newMember.balance),
+
+        // balance: Number(newMember.balance),
+        role: newMember.role,
+        stId: selectedSavingType,
+        numberOfShares,
       });
       
       // Reset form
@@ -152,8 +203,12 @@ const Members: React.FC = () => {
         lastName: "",
         email: "",
         telephone: "",
+
         balance: 0,
+        role: "member",
       });
+      setNumberOfShares(1);
+      setSelectedSavingType("");
       
       // Close modal
       setIsAddModalOpen(false);
@@ -563,7 +618,41 @@ const Members: React.FC = () => {
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
+            {/* Role Selection */}
+            
+            {/* Role Selection */}
             <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Role *
+              </label>
+              <div className="flex space-x-4">
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="member"
+                    checked={newMember.role === 'member'}
+                    onChange={handleInputChange}
+                    className="form-radio h-4 w-4 text-emerald-600 transition duration-150 ease-in-out"
+                  />
+                  <span className="ml-2 text-gray-700 dark:text-gray-300">Member</span>
+                </label>
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="admin"
+                    checked={newMember.role === 'admin'}
+                    onChange={handleInputChange}
+                    className="form-radio h-4 w-4 text-emerald-600 transition duration-150 ease-in-out"
+                  />
+                  <span className="ml-2 text-gray-700 dark:text-gray-300">Admin</span>
+                </label>
+              </div>
+            </div>
+
+            {newMember.role === 'member' && (
+             <div>
               <label
                 htmlFor="nid"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
@@ -585,7 +674,8 @@ const Members: React.FC = () => {
                   {errors.nid}
                 </p>
               )}
-            </div>
+             </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label
@@ -631,7 +721,7 @@ const Members: React.FC = () => {
                   </p>
                 )}
               </div>
-            </div>
+
             <div>
               <label
                 htmlFor="email"
@@ -654,7 +744,10 @@ const Members: React.FC = () => {
                 </p>
               )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            
+            {newMember.role === 'member' && (
+            <>
               <div>
                 <label
                   htmlFor="telephone"
@@ -678,34 +771,51 @@ const Members: React.FC = () => {
                 )}
               </div>
               <div>
-                <label
-                  htmlFor="balance"
+                 <label
+                  htmlFor="savingType"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                 >
-                  {t("initialBalance")} *
+                  Share Type *
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <span className="text-gray-500 dark:text-gray-400">$</span>
-                  </div>
-                  <input
-                    type="number"
-                    id="balance"
-                    name="balance"
-                    value={newMember.balance}
-                    onChange={handleInputChange}
-                    min="0"
-                    step="1"
-                    className="w-full pl-8 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    placeholder="0"
-                  />
-                </div>
-                {errors.balance && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    {errors.balance}
-                  </p>
-                )}
+                <select
+                  id="savingType"
+                  value={selectedSavingType}
+                  onChange={(e) => setSelectedSavingType(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Select Share Type</option>
+                  {savingTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
               </div>
+              <div>
+                <label
+                  htmlFor="numberOfShares"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Number of Shares *
+                </label>
+                 <input
+                    type="number"
+                    id="numberOfShares"
+                    value={numberOfShares}
+                    onChange={(e) => setNumberOfShares(Number(e.target.value))}
+                    min="1"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                  {selectedSavingType && (
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      Total Value: {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+                        (savingTypes.find(t => t.value === selectedSavingType)?.amount || 0) * numberOfShares
+                      )}
+                    </p>
+                  )}
+              </div>
+            </>
+            )}
             </div>
           </div>
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">

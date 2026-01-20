@@ -14,12 +14,12 @@ const {
 } = require("../services/saving.service");
 savingRouter.post("/", addSavig);
 savingRouter.put("/", editSaving);
+savingRouter.get("/overview", getMembersSavingsOverview);
 savingRouter.get("/:limit", getAllSavings);
 savingRouter.post("/data", getSavings);
 savingRouter.get("/on/:date", getSavings);
 savingRouter.post("/complete", completeSaving);
 savingRouter.get("/type/list", getSavingSelectList);
 savingRouter.get("/changes/:id",getSavingChanges)
-savingRouter.get("/overview", getMembersSavingsOverview);
 savingRouter.get("/transactions/:memberId", getMemberSavings);
 module.exports = savingRouter;

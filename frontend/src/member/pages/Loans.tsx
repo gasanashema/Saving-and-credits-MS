@@ -119,6 +119,13 @@ const Loans: React.FC = () => {
   const maxLoanLimit = eligibility?.limit || 0;
   const isEligible = eligibility?.eligible || false;
 
+  // Auto-set the amount to the maximum limit when eligibility/package changes
+  useEffect(() => {
+    if (isAddModalOpen && maxLoanLimit > 0) {
+       setNewLoan(prev => ({ ...prev, amount: formatNumberWithCommas(maxLoanLimit.toString()) }));
+    }
+  }, [maxLoanLimit, isAddModalOpen]);
+
   // Set default phone number when modal opens
   useEffect(() => {
     if (isPaymentModalOpen && user?.telephone) {
@@ -821,24 +828,17 @@ const Loans: React.FC = () => {
             {/* Loan Package Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Loan Package</label>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <select
+                value={selectedPackageId || ''}
+                onChange={(e) => setSelectedPackageId(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              >
                 {packages.map(pkg => (
-                  <div 
-                    key={pkg.id}
-                    onClick={() => setSelectedPackageId(pkg.id)}
-                    className={`cursor-pointer rounded-lg p-4 border-2 transition-all ${
-                      selectedPackageId === pkg.id 
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                    }`}
-                  >
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{pkg.name}</h3>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                       Rate: {pkg.interest_rate}% | Duration: {pkg.repayment_duration_months}m
-                    </div>
-                  </div>
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name} (Rate: {pkg.interest_rate}%, Duration: {pkg.repayment_duration_months}m)
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
 
 
@@ -857,17 +857,18 @@ const Loans: React.FC = () => {
 
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('loanAmount')} *</label>
-              <input
-                type="text"
-                id="amount"
-                name="amount"
-                value={newLoan.amount}
-                onChange={handleInputChange}
-                disabled={!isEligible}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 dark:bg-gray-700 dark:text-white ${errors.amount ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'}`}
-                placeholder={isEligible ? `Enter amount (Max: ${formatCurrency(maxLoanLimit)})` : "Not eligible"}
-              />
-              {errors.amount && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.amount}</p>}
+              <div className="relative">
+                <input
+                  type="text"
+                  id="amount"
+                  name="amount"
+                  value={newLoan.amount}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-gray-100 dark:bg-gray-800 cursor-not-allowed focus:outline-none dark:text-white"
+                  placeholder="Amount determined by package"
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">The amount is automatically set to your maximum eligibility for this package.</p>
             </div>
 
             <div>

@@ -16,7 +16,7 @@ const calculateMaxLoan = async (memberId, packageId = null) => {
     // 1. Fetch Loan Package Config
     let packageRules = {
       min_savings: 0,
-      min_membership_months: 3, // Default fallback
+      min_membership_months: 0, // Default fallback (Relaxed to 0 for maximum ease)
       loan_multiplier: 3.0,     // Default fallback
       repayment_duration_months: 12,
       interest_rate: 5,
@@ -94,6 +94,10 @@ const calculateMaxLoan = async (memberId, packageId = null) => {
 
     // 4. Calculate Factors
     let baseLimit = totalSavings * packageRules.loan_multiplier;
+    
+    // Ensure at least a small limit even if savings are low (Micro-loan logic)
+    if (baseLimit < 50000) baseLimit = 50000; // Minimum floor for eligible members
+
     let consistencyFactor = 1.0;
     let repaymentFactor = 1.0;
 
@@ -105,10 +109,11 @@ const calculateMaxLoan = async (memberId, packageId = null) => {
     );
     const monthsSaved = consistency[0].months_saved || 0;
     
+    // Relaxed consistency penalty
     if (monthsSaved < (CONSISTENCY_CHECK_MONTHS / 2)) {
-      consistencyFactor = 0.8;
+      consistencyFactor = 0.9; // Was 0.8
     } else if (monthsSaved === 0) {
-      consistencyFactor = 0.5;
+      consistencyFactor = 0.8; // Was 0.5
     }
 
     // Repayment: Check penalties

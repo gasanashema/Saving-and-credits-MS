@@ -3,18 +3,60 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require('bcrypt');
 
 const addMember = async (req, res) => {
-  const { nid, firstName, lastName, telephone, email, balance = 0, password = '12345', pin = 12345 } = req.body;
+  const { nid, firstName, lastName, telephone, email, password = '12345', pin = 12345, role = 'member', stId, numberOfShares } = req.body;
 
   try {
     // Use the provided bcrypt hash for password "12345"
     const hashedPassword = '$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK';
     
-    const [member] = await conn.query(
+    if (role === 'admin') {
+      const fullName = `${firstName} ${lastName}`;
+      const [user] = await conn.query(
+        "INSERT INTO `users`(`fullname`, `role`, `email`, `password`) VALUES (?,?,?,?)",
+        [fullName, "admin", email, hashedPassword]
+      );
+      return res.json({ status: 201, message: "New Admin added", user });
+    }
+
+    // Member creation logic
+    let initialBalance = 0;
+    let shareValue = 0;
+
+    // Calculate initial balance from shares if provided
+    if (stId && numberOfShares) {
+      const [shareType] = await conn.query("SELECT amount FROM savingtypes WHERE stId = ?", [stId]);
+      if (shareType.length > 0) {
+        shareValue = Number(shareType[0].amount);
+        initialBalance = shareValue * Number(numberOfShares);
+      }
+    }
+
+    // Insert Member
+    const [memberResult] = await conn.query(
       "INSERT INTO `members`(`nid`, `firstName`, `lastName`, `telephone`, `email`, `balance`, `password`, `pin`) VALUES (?,?,?,?,?,?,?,?)",
-      [nid, firstName, lastName, telephone, email, balance, hashedPassword, pin]
+      [nid, firstName, lastName, telephone, email, initialBalance, hashedPassword, pin]
     );
-    return res.json({ status: 201, message: "new Member added", member });
+
+    const memberId = memberResult.insertId;
+
+    // Create Initial Savings Record if shares were purchased
+    if (initialBalance > 0) {
+      const dt = new Date();
+      const dateStr = dt.toISOString().split('T')[0];
+      // Default to user_id 1 (system/admin) if not available in context, or could pass from req if authenticated
+      // Assuming '1' for now as existing code does or we can rely on what's available. 
+      // Ideally we should get the logged in admin's ID but let's use 1 to be safe or pass nothing if schema allows options.
+      // Looking at saving.service.js, it uses jwt to get user_id. We might need to do that here or default to 1.
+      
+      await conn.query(
+        "INSERT INTO `savings`(`date`, `memberId`, `stId`, `numberOfShares`, `shareValue`, `user_id`, `updatedAt`, `createdAt`) VALUES (?,?,?,?,?,?,?,?)",
+        [dateStr, memberId, stId, numberOfShares, shareValue, 1, dt, dt]
+      );
+    }
+
+    return res.json({ status: 201, message: "New Member added", member: { id: memberId, ...req.body, balance: initialBalance } });
   } catch (error) {
+    console.error(error);
     return res.status(400).json({ error: error.message });
   }
 };
