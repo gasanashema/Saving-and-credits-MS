@@ -2,7 +2,7 @@ const conn = require("../../db/connection");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-const Auth = async (req, res) => {
+const 2222222222222222222222Auth = async (req, res) => {
   try {
     const { username, password, role } = req.body;
     let user;
