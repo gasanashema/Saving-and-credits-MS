@@ -196,7 +196,7 @@ const getMembersSavingsOverview = async (req, res) => {
         m.firstName, 
         m.lastName, 
         m.telephone,
-        (SELECT COALESCE(SUM(CAST(numberOfShares AS DECIMAL(10,2)) * CAST(shareValue AS DECIMAL(10,2))), 0) FROM savings WHERE memberId = m.id) as totalSavings,
+        (SELECT COALESCE(SUM(numberOfShares * shareValue), 0) FROM savings WHERE memberId = m.id) as totalSavings,
         (SELECT MAX(date) FROM savings WHERE memberId = m.id) as lastSavingDate,
         (SELECT COUNT(*) FROM loan WHERE memberId = m.id AND status = 'active') as activeLoanCount,
         (SELECT COALESCE(SUM(CAST(amountTopay AS DECIMAL(10,2)) - CAST(payedAmount AS DECIMAL(10,2))), 0) FROM loan WHERE memberId = m.id AND status = 'active') as activeLoanAmount
