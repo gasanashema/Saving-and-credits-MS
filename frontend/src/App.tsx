@@ -22,6 +22,7 @@ import AdminPenalties from "./admin/pages/Penalties";
 import AdminReports from "./admin/pages/Reports";
 import AdminNotifications from "./admin/pages/Notifications";
 import AdminSettings from "./admin/pages/Settings";
+import AdminLoanPackages from "./admin/pages/LoanPackages";
 import AdminChat from "./admin/pages/Chat";
 
 // SuperAdmin pages
@@ -77,6 +78,7 @@ export function App() {
                   <Route path="penalties" element={<AdminPenalties />} />
                   <Route path="reports" element={<AdminReports />} />
                   <Route path="notifications" element={<AdminNotifications />} />
+                  <Route path="loan-packages" element={<AdminLoanPackages />} />
                   <Route path="chat" element={<AdminChat />} />
                   <Route path="settings" element={<AdminSettings />} />
                 </Route>
