@@ -9,10 +9,11 @@ const conn = mysql
     // database: process.env.DB_NAME,
     // port: process.env.DB_PORT,
     host: "localhost",
-    user: "root",
-    password: "",
+    user: "phpmyadmin",
+    password: "disaster",
     // database: "ikibina_new",
-    database: "ikibina_app",
+    // database: "ikibina_app",
+    database: "ikibina_db",
     port: 3306,
   })
   .promise();

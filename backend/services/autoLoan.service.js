@@ -16,8 +16,8 @@ const calculateMaxLoan = async (memberId, packageId = null) => {
     // 1. Fetch Loan Package Config
     let packageRules = {
       min_savings: 0,
-      min_membership_months: 0, // Default fallback (Relaxed to 0 for maximum ease)
-      loan_multiplier: 3.0,     // Default fallback
+      min_membership_months: 0, 
+      max_loan_amount: 10000000,
       repayment_duration_months: 12,
       interest_rate: 5,
       name: 'Standard (Default)'
@@ -30,22 +30,21 @@ const calculateMaxLoan = async (memberId, packageId = null) => {
         packageRules = {
           min_savings: Number(p.min_savings),
           min_membership_months: p.min_membership_months,
-          loan_multiplier: Number(p.loan_multiplier),
+          max_loan_amount: Number(p.max_loan_amount || 0),
           repayment_duration_months: p.repayment_duration_months,
           interest_rate: Number(p.interest_rate),
           name: p.name
         };
       }
     } else {
-       // If no package selected, maybe pick the "Standard Loan" or highest multiplier to show potential?
-       // For now, let's try to find a 'Standard Loan' or use defaults.
+       // Fallback: try to find a standard package
        const [pkgs] = await conn.query("SELECT * FROM loan_packages WHERE name LIKE '%Standard%' LIMIT 1");
        if (pkgs.length > 0) {
           const p = pkgs[0];
           packageRules = {
             min_savings: Number(p.min_savings),
             min_membership_months: p.min_membership_months,
-            loan_multiplier: Number(p.loan_multiplier),
+            max_loan_amount: Number(p.max_loan_amount || 0),
             repayment_duration_months: p.repayment_duration_months,
             interest_rate: Number(p.interest_rate),
             name: p.name
@@ -53,9 +52,26 @@ const calculateMaxLoan = async (memberId, packageId = null) => {
        }
     }
     
-    // 2. Check Membership Duration
+    // 2. ONE ACTIVE LOAN POLICY
+    // Check if user has ANY active, pending, or approved loan
+    const [existingLoans] = await conn.query(
+        "SELECT count(*) as count FROM loan WHERE memberId = ? AND status IN ('active', 'pending', 'approved')",
+        [memberId]
+    );
+    
+    if (existingLoans[0].count > 0) {
+        conn.release();
+        return {
+            eligible: false,
+            // currentActiveAmount uses "count" conceptually here as a blocker
+            limit: 0,
+            reason: "You have an active or pending loan. You must repay it before applying for a new one."
+        };
+    }
+
+    // 3. CHECK MEMBERSHIP DURATION
     const [memberData] = await conn.query(
-      "SELECT created_at, firstName, lastName FROM members WHERE id = ?",
+      "SELECT created_at FROM members WHERE id = ?",
       [memberId]
     );
 
@@ -76,7 +92,7 @@ const calculateMaxLoan = async (memberId, packageId = null) => {
       };
     }
 
-    // 3. Calculate Total Savings
+    // 4. CHECK TOTAL SAVINGS
     const [savings] = await conn.query(
       "SELECT SUM(numberOfShares * shareValue) as total FROM savings WHERE memberId = ?",
       [memberId]
@@ -92,86 +108,28 @@ const calculateMaxLoan = async (memberId, packageId = null) => {
       };
     }
 
-    // 4. Calculate Factors
-    let baseLimit = totalSavings * packageRules.loan_multiplier;
-    
-    // Ensure at least a small limit even if savings are low (Micro-loan logic)
-    if (baseLimit < 50000) baseLimit = 50000; // Minimum floor for eligible members
-
-    let consistencyFactor = 1.0;
-    let repaymentFactor = 1.0;
-
-    // Consistency: Check savings in last 6 months (hardcoded or config)
-    const CONSISTENCY_CHECK_MONTHS = 6;
-    const [consistency] = await conn.query(
-      "SELECT COUNT(DISTINCT DATE_FORMAT(date, '%Y-%m')) as months_saved FROM savings WHERE memberId = ? AND date >= DATE_SUB(NOW(), INTERVAL ? MONTH)",
-      [memberId, CONSISTENCY_CHECK_MONTHS]
-    );
-    const monthsSaved = consistency[0].months_saved || 0;
-    
-    // Relaxed consistency penalty
-    if (monthsSaved < (CONSISTENCY_CHECK_MONTHS / 2)) {
-      consistencyFactor = 0.9; // Was 0.8
-    } else if (monthsSaved === 0) {
-      consistencyFactor = 0.8; // Was 0.5
+    // 5. DETERMINE LIMIT
+    // The limit is simply the package's max loan amount.
+    let baseLimit = 10000000; // Default
+    if (packageRules.max_loan_amount && packageRules.max_loan_amount > 0) {
+       baseLimit = packageRules.max_loan_amount;
     }
-
-    // Repayment: Check penalties
-    const [penalties] = await conn.query(
-        "SELECT COUNT(*) as count FROM penalties WHERE memberId = ? AND pstatus = 'wait'",
-        [memberId]
-    );
-    if (penalties[0].count > 0) {
-        repaymentFactor = 0.0; // Ineligible if active penalties
-    }
-
-    // Check early repayment bonus (simple implementation: if paid previous loans on time/early)
-    // For now, let's keep repaymentFactor simple based on penalties as specific alg was not detailed beyond "Configurable/repayment data"
-    // We can add a query to boost factor if they have existing PAID loans with no penalties.
-    const [pastLoans] = await conn.query(
-        "SELECT count(*) as count FROM loan WHERE memberId = ? AND status = 'paid'",
-        [memberId]
-    );
-    if (pastLoans[0].count > 0 && repaymentFactor > 0) {
-        repaymentFactor += 0.1; // 10% bonus for past good behavior
-    }
-
-    // Final Limit Calculation
-    const maxLoan = Math.floor(baseLimit * consistencyFactor * repaymentFactor);
-
-    // 5. Active Loan Rule: total_active_loans_amount + requested_loan <= max_allowed
-    // We calculate "remaining capacity".
-    // Get current active loans amount (principal)
-    const [activeLoans] = await conn.query(
-       "SELECT SUM(amount) as totalActive FROM loan WHERE memberId = ? AND status IN ('active', 'approved', 'pending')",
-       [memberId]
-    );
-    const currentActiveAmount = Number(activeLoans[0].totalActive || 0);
     
-    const remainingCapacity = Math.max(0, maxLoan - currentActiveAmount);
-
-    // Log the calculation
-    await conn.query(
-      "INSERT INTO loan_eligibility_logs (member_id, total_savings, base_limit, consistency_factor, repayment_factor, final_limit, is_eligible) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [memberId, totalSavings, baseLimit, consistencyFactor, repaymentFactor, maxLoan, remainingCapacity > 0]
-    );
-
+    // Always eligible if checks passed
     conn.release();
 
     return {
-      eligible: remainingCapacity > 0,
-      limit: remainingCapacity, // The user can only borrow what's left of their capacity
-      maxTotalLimit: maxLoan,   // The total they could have if they had 0 loans
-      currentActiveAmount,
+      eligible: true,
+      limit: baseLimit, 
+      maxTotalLimit: baseLimit,
+      currentActiveAmount: 0,
       factors: {
         totalSavings,
         baseLimit,
-        consistencyFactor,
-        repaymentFactor,
         package: packageRules.name
       },
       packageRules,
-      reason: remainingCapacity > 0 ? "Eligible" : `Credit limit reached. Total limit: ${maxLoan}, Active: ${currentActiveAmount}`
+      reason: "Eligible"
     };
 
   } catch (error) {
@@ -180,22 +138,44 @@ const calculateMaxLoan = async (memberId, packageId = null) => {
   }
 };
 
+const jwt = require("jsonwebtoken");
+
 const requestLoan = async (req, res) => {
-  const { memberId, amount, re, duration, packageId } = req.body;
+  let { memberId, amount, re, duration, packageId } = req.body;
   
+  // Try to get memberId from token if not in body
+  if (!memberId) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+          try {
+            const token = authHeader.substring(7);
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            memberId = decoded.id;
+          } catch (e) {
+             console.warn("Token decode failed in requestLoan", e);
+          }
+      }
+  }
+
+  console.log("Loan Request Received:", { memberId, amount, duration, packageId });
+
   if (!memberId || !amount || !duration) {
+    console.error("Missing required fields:", { memberId, amount, duration });
     return res.status(400).json({ error: "Missing required fields" });
   }
 
   try {
     // 1. Check Eligibility
     const eligibility = await calculateMaxLoan(memberId, packageId);
+    console.log("Eligibility Check Result:", JSON.stringify(eligibility, null, 2));
     
     if (!eligibility.eligible) {
+      console.error("Loan Eligibility Failed:", eligibility.reason);
       return res.status(403).json({ error: "Not eligible for loan", details: eligibility.reason });
     }
 
     if (amount > eligibility.limit) {
+      console.error(`Amount Exceeds Limit: Requested ${amount}, Limit ${eligibility.limit}`);
       return res.status(400).json({ 
         error: "Requested amount exceeds eligibility limit", 
         limit: eligibility.limit,

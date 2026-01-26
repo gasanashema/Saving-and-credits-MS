@@ -303,12 +303,14 @@ const Loans: React.FC = () => {
 
       const selectedPkg = packages.find(p => p.id === selectedPackageId);
       
-      await server.post('/loans/auto', {
+      await server.post('/loans', {
         memberId: user?.id, // Ensure memberId is sent
         amount,
         duration, // Calculated from package
         re: `${newLoan.purpose}: ${newLoan.notes}`.trim(),
-        packageId: selectedPkg?.id
+        packageId: selectedPkg?.id,
+        rate,
+        amountTopay: amountToPay
       });
 
       setNewLoan({ amount: '', purpose: 'business', notes: '' });

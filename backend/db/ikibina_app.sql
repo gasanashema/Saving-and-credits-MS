@@ -385,30 +385,13 @@ INSERT INTO `loan_configs` (`id`, `config_key`, `config_value`, `description`, `
 -- Table structure for table `loan_eligibility_logs`
 --
 
-DROP TABLE IF EXISTS `loan_eligibility_logs`;
-CREATE TABLE `loan_eligibility_logs` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `member_id` int(11) NOT NULL,
-  `calculation_date` datetime NOT NULL DEFAULT current_timestamp(),
-  `total_savings` decimal(15,2) NOT NULL DEFAULT 0.00,
-  `base_limit` decimal(15,2) NOT NULL DEFAULT 0.00,
-  `consistency_factor` decimal(5,2) NOT NULL DEFAULT 1.00,
-  `repayment_factor` decimal(5,2) NOT NULL DEFAULT 1.00,
-  `final_limit` decimal(15,2) NOT NULL DEFAULT 0.00,
-  `is_eligible` tinyint(1) NOT NULL DEFAULT 0,
-  `rejection_reason` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_member_date` (`member_id`,`calculation_date`),
-  CONSTRAINT `fk_log_member` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 
 --
 -- Dumping data for table `loan_eligibility_logs`
 --
 
-INSERT INTO `loan_eligibility_logs` (`id`, `member_id`, `calculation_date`, `total_savings`, `base_limit`, `consistency_factor`, `repayment_factor`, `final_limit`, `is_eligible`, `rejection_reason`) VALUES
-(1, 9, '2026-01-13 23:05:02', 130000.00, 390000.00, 0.80, 1.00, 312000.00, 1, NULL),
-(2, 9, '2026-01-13 23:05:09', 130000.00, 390000.00, 0.80, 1.00, 312000.00, 1, NULL);
+
 
 -- --------------------------------------------------------
 
@@ -538,7 +521,7 @@ ALTER TABLE `loan_packages` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_IN
 ALTER TABLE `loan` MODIFY `loanId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 ALTER TABLE `loanpayment` MODIFY `pay_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 ALTER TABLE `loan_configs` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
-ALTER TABLE `loan_eligibility_logs` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
 ALTER TABLE `notification_groups` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 ALTER TABLE `notifications` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 ALTER TABLE `notification_group_members` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;

@@ -16,7 +16,6 @@ const LoanPackages: React.FC = () => {
     min_savings: 0,
     max_loan_amount: 0,
     min_membership_months: 3,
-    loan_multiplier: 3.0,
     repayment_duration_months: 12,
     interest_rate: 18,
     description: '',
@@ -47,7 +46,6 @@ const LoanPackages: React.FC = () => {
         min_savings: 0,
         max_loan_amount: 0,
         min_membership_months: 3,
-        loan_multiplier: 3.0,
         repayment_duration_months: 12,
         interest_rate: 18,
         description: '',
@@ -78,7 +76,6 @@ const LoanPackages: React.FC = () => {
                 min_savings: 0,
                 max_loan_amount: 0,
                 min_membership_months: 3,
-                loan_multiplier: 3.0,
                 repayment_duration_months: 12,
                 interest_rate: 18,
                 description: '',
@@ -127,10 +124,7 @@ const LoanPackages: React.FC = () => {
                     <span>Min Membership:</span>
                     <span className="font-semibold">{pkg.min_membership_months} months</span>
                  </div>
-                 <div className="flex justify-between">
-                    <span>Multiplier:</span>
-                    <span className="font-semibold">{pkg.loan_multiplier}x</span>
-                 </div>
+
                  <div className="flex justify-between">
                     <span>Interest Rate:</span>
                     <span className="font-semibold">{pkg.interest_rate}%</span>
@@ -197,15 +191,6 @@ const LoanPackages: React.FC = () => {
 
                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Loan Multiplier</label>
-                    <input 
-                        type="number" step="0.1" required 
-                        value={formData.loan_multiplier} 
-                        onChange={e => setFormData({...formData, loan_multiplier: Number(e.target.value)})}
-                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Interest Rate (%)</label>
                     <input 
                         type="number" step="0.1" required 
@@ -214,9 +199,6 @@ const LoanPackages: React.FC = () => {
                         className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
-               </div>
-
-               <div className="grid grid-cols-2 gap-4">
                   <div>
                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Duration (Months)</label>
                      <input 
@@ -226,6 +208,9 @@ const LoanPackages: React.FC = () => {
                         className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                      />
                   </div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Min Membership (Months)</label>
                     <input 
