@@ -14,6 +14,7 @@ const LoanPackages: React.FC = () => {
   const [formData, setFormData] = useState<Partial<LoanPackage>>({
     name: '',
     min_savings: 0,
+    max_loan_amount: 0,
     min_membership_months: 3,
     loan_multiplier: 3.0,
     repayment_duration_months: 12,
@@ -44,6 +45,7 @@ const LoanPackages: React.FC = () => {
       setFormData({
         name: '',
         min_savings: 0,
+        max_loan_amount: 0,
         min_membership_months: 3,
         loan_multiplier: 3.0,
         repayment_duration_months: 12,
@@ -74,6 +76,7 @@ const LoanPackages: React.FC = () => {
             setFormData({
                 name: '',
                 min_savings: 0,
+                max_loan_amount: 0,
                 min_membership_months: 3,
                 loan_multiplier: 3.0,
                 repayment_duration_months: 12,
@@ -114,7 +117,11 @@ const LoanPackages: React.FC = () => {
               <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                  <div className="flex justify-between">
                     <span>Min Savings:</span>
-                    <span className="font-semibold">{pkg.min_savings.toLocaleString()} RWF</span>
+                    <span className="font-semibold">{(pkg.min_savings || 0).toLocaleString()} RWF</span>
+                 </div>
+                 <div className="flex justify-between">
+                    <span>Max Loan Amount:</span>
+                    <span className="font-semibold text-green-600 dark:text-green-400">{(pkg.max_loan_amount || 0).toLocaleString()} RWF</span>
                  </div>
                  <div className="flex justify-between">
                     <span>Min Membership:</span>
@@ -178,6 +185,18 @@ const LoanPackages: React.FC = () => {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Loan Amount (RWF)</label>
+                    <input 
+                        type="number" required 
+                        value={formData.max_loan_amount} 
+                        onChange={e => setFormData({...formData, max_loan_amount: Number(e.target.value)})}
+                        className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Loan Multiplier</label>
                     <input 
                         type="number" step="0.1" required 
@@ -186,9 +205,6 @@ const LoanPackages: React.FC = () => {
                         className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
-               </div>
-
-               <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Interest Rate (%)</label>
                     <input 
@@ -198,6 +214,9 @@ const LoanPackages: React.FC = () => {
                         className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
                   <div>
                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Duration (Months)</label>
                      <input 
@@ -207,9 +226,7 @@ const LoanPackages: React.FC = () => {
                         className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                      />
                   </div>
-               </div>
-
-               <div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Min Membership (Months)</label>
                     <input 
                         type="number" required 
@@ -217,6 +234,7 @@ const LoanPackages: React.FC = () => {
                         onChange={e => setFormData({...formData, min_membership_months: Number(e.target.value)})}
                         className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
+                  </div>
                </div>
 
                <div>

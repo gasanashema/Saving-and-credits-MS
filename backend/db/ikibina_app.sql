@@ -261,6 +261,7 @@ CREATE TABLE `loan_packages` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
   `min_savings` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `max_loan_amount` decimal(15,2) NOT NULL DEFAULT 0.00,
   `min_membership_months` int(11) NOT NULL DEFAULT 0,
   `loan_multiplier` decimal(5,2) NOT NULL DEFAULT 1.00,
   `repayment_duration_months` int(11) NOT NULL DEFAULT 1,

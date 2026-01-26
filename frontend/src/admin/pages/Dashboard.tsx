@@ -80,7 +80,6 @@ const processAdminData = (rawData: any) => {
   return {
     stats: {
       totalMembers,
-      totalMembers,
       totalSavings,
       netSavings, // Total - Active Loans
       activeLoansAmount,

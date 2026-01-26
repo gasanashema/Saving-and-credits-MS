@@ -84,19 +84,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             </li>)}
         </ul>
       </nav>
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg">
-          <h4 className="font-medium text-blue-700 dark:text-blue-300">
-            {t('needHelp')}
-          </h4>
-          <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-            {t('contactSupport')}
-          </p>
-          <button onClick={() => navigate('help-center')} className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-center">
-            {t('supportCenter')}
-          </button>
-        </div>
-      </div>
     </div>;
 };
 export default Sidebar;
