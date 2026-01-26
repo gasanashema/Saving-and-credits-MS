@@ -278,11 +278,11 @@ CREATE TABLE `loan_packages` (
 -- Dumping data for table `loan_packages`
 --
 
-INSERT INTO `loan_packages` (`name`, `min_savings`, `min_membership_months`, `loan_multiplier`, `repayment_duration_months`, `interest_rate`, `description`) VALUES
-('Standard Loan', 300000.00, 6, 2.00, 12, 18.00, 'Standard loan for established members'),
-('Progressive Saver Loan', 500000.00, 12, 3.00, 18, 16.00, 'For members with higher savings history'),
-('Loyalty Advantage Loan', 1000000.00, 24, 4.00, 24, 14.00, 'Best rates for long-term members'),
-('Emergency Loan', 150000.00, 3, 1.00, 6, 0.00, 'Quick small loans for emergencies');
+INSERT INTO `loan_packages` (`id`, `name`, `min_savings`, `max_loan_amount`, `min_membership_months`, `loan_multiplier`, `repayment_duration_months`, `interest_rate`, `description`, `status`) VALUES
+(1, 'Standard Loan', 300000.00, 10000000.00, 6, 2.00, 12, 18.00, 'Standard loan for established members', 'active'),
+(2, 'Progressive Saver Loan', 500000.00, 20000000.00, 12, 3.00, 18, 16.00, 'For members with higher savings history', 'active'),
+(3, 'Loyalty Advantage Loan', 1000000.00, 50000000.00, 24, 4.00, 24, 14.00, 'Best rates for long-term members', 'active'),
+(4, 'Emergency Loan', 50000.00, 500000.00, 3, 1.00, 0, 0.50, 'Quick small loans for emergencies', 'active');
 
 -- --------------------------------------------------------
 

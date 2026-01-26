@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 const LoanPackages: React.FC = () => {
   const { packages, loading, error, refresh } = useLoanPackages();
+  console.log("Packages List:", packages);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<LoanPackage | null>(null);
   
