@@ -12,31 +12,28 @@ const {
   getAllLoanPayments,
   getMemberPaymentHistory,
   getLoanById,
+  getLoanConfigs,
+  updateLoanConfig,
 } = require("../services/loan.service");
-const { requestLoan, calculateMaxLoan } = require("../services/autoLoan.service");
-const { 
-  getAllPackages, 
-  getPackageById, 
-  createPackage, 
-  updatePackage 
+const {
+  requestLoan,
+  calculateMaxLoan,
+} = require("../services/autoLoan.service");
+const {
+  getAllPackages,
+  getPackageById,
+  createPackage,
+  updatePackage,
 } = require("../services/loan-package.service");
+const {
+  verifySuperAdmin,
+  verifyAdmin,
+  verifyToken,
+} = require("../middleware/auth.middleware");
 
 const loanRouter = express.Router();
 
-loanRouter.post("/", addLoan);
-loanRouter.get("/details/:id", getLoanById);
-loanRouter.get("/:limit", getLoansByStatus);
-loanRouter.get("/member/:memberId", getMemberLoans);
-loanRouter.get("/data/:status/:start/:end", getAllLoans);
-loanRouter.get("/actions/:loanId/:action", loanAction);
-loanRouter.get("/total/:search", getTotal);
-loanRouter.get("/payment-details/:loanId", getLoanPaymentDetails);
-loanRouter.get("/payments/recent", getAllLoanPayments);
-loanRouter.get("/member-payment-history/:memberId", getMemberPaymentHistory);
-loanRouter.put("/pay", payLoan);
-loanRouter.get("/payhistory/:id", getLoanHistory);
-
-// Loan Packages Routes
+// Loan Packages Routes (Place first to avoid conflict)
 loanRouter.get("/packages/all", getAllPackages);
 loanRouter.get("/packages/:id", async (req, res) => {
   try {
@@ -47,8 +44,12 @@ loanRouter.get("/packages/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch package" });
   }
 });
-loanRouter.post("/packages", createPackage);
-loanRouter.put("/packages/:id", updatePackage);
+loanRouter.post("/packages", verifySuperAdmin, createPackage);
+loanRouter.put("/packages/:id", verifySuperAdmin, updatePackage);
+
+// Loan Configs Routes (Place before generic params)
+loanRouter.get("/configs", verifyAdmin, getLoanConfigs);
+loanRouter.put("/configs/:key", verifySuperAdmin, updateLoanConfig);
 
 // Auto-Loan / Eligibility Routes
 loanRouter.post("/auto", requestLoan);
@@ -61,5 +62,22 @@ loanRouter.get("/eligibility/:memberId", async (req, res) => {
     res.status(500).json({ error: "Failed to check eligibility" });
   }
 });
+
+loanRouter.post("/", verifyToken, addLoan);
+loanRouter.get("/details/:id", verifyToken, getLoanById);
+loanRouter.get("/:limit", verifyAdmin, getLoansByStatus);
+loanRouter.get("/member/:memberId", verifyToken, getMemberLoans);
+loanRouter.get("/data/:status/:start/:end", verifyAdmin, getAllLoans);
+loanRouter.get("/actions/:loanId/:action", verifyAdmin, loanAction);
+loanRouter.get("/total/:search", verifyAdmin, getTotal);
+loanRouter.get("/payment-details/:loanId", verifyToken, getLoanPaymentDetails);
+loanRouter.get("/payments/recent", verifyAdmin, getAllLoanPayments);
+loanRouter.get(
+  "/member-payment-history/:memberId",
+  verifyToken,
+  getMemberPaymentHistory,
+);
+loanRouter.put("/pay", verifyAdmin, payLoan);
+loanRouter.get("/payhistory/:id", verifyToken, getLoanHistory);
 
 module.exports = loanRouter;

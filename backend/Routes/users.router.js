@@ -8,17 +8,22 @@ const {
   resetPassword,
   getAdminContacts,
 } = require("../services/users.service");
+const {
+  verifySuperAdmin,
+  verifyAdmin,
+} = require("../middleware/auth.middleware");
+
 const usersRouter = express.Router();
 
-usersRouter.get("/", getAllUsers);
-usersRouter.get("/:id", (req, res) => res.json("users router"));
-usersRouter.post("/", addUser);
-usersRouter.put("/:action/:id", updateStatus);
-usersRouter.put("/:id/reset-password", resetPassword);
+usersRouter.get("/", verifyAdmin, getAllUsers);
+// usersRouter.get("/:id", (req, res) => res.json("users router"));
+usersRouter.post("/", verifySuperAdmin, addUser);
+usersRouter.put("/:action/:id", verifySuperAdmin, updateStatus);
+usersRouter.put("/:id/reset-password", verifySuperAdmin, resetPassword);
 
 usersRouter.post("/auth", Auth);
-usersRouter.get("/admin/dashboard", dashBoard);
-usersRouter.get("/admin/contacts", getAdminContacts);
-usersRouter.delete("/:id", (req, res) => res.json("users router"));
+usersRouter.get("/admin/dashboard", verifyAdmin, dashBoard);
+usersRouter.get("/admin/contacts", verifyAdmin, getAdminContacts);
+// usersRouter.delete("/:id", (req, res) => res.json("users router"));
 
 module.exports = usersRouter;

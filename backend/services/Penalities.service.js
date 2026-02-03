@@ -7,7 +7,7 @@ const addPenalities = async (req, res) => {
     const dt = new Date();
     const [penality] = await conn.query(
       "INSERT INTO `penalties`(`date`, `pType`, `amount`, `memberId`) VALUES (?,?,?,?)",
-      [dt, pType, amount, memberId]
+      [dt, pType, amount, memberId],
     );
     return res.json({ status: 201, message: "new Penality added", penality });
   } catch (error) {
@@ -23,11 +23,11 @@ const getPenalities = async (req, res) => {
     let memberId = null;
 
     // Check if request is from a member
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith("Bearer ")) {
       try {
         const token = authHeader.substring(7);
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        if (decoded.role === 'member') {
+        if (decoded.role === "member") {
           memberId = decoded.id;
         }
       } catch (err) {
@@ -35,7 +35,8 @@ const getPenalities = async (req, res) => {
       }
     }
 
-    let sql = "SELECT id,firstName,lastName,date,amount,PayedArt,confirmedBy,p_id, pstatus FROM penalties INNER JOIN members WHERE id = memberId";
+    let sql =
+      "SELECT id,firstName,lastName,date,amount,PayedArt,confirmedBy,p_id, pstatus FROM penalties INNER JOIN members WHERE id = memberId";
 
     if (search !== "all") {
       sql += ` AND pstatus='${search}'`;
@@ -60,13 +61,13 @@ const payPenality = async (req, res) => {
     const dt = new Date();
     let userId = 1; // default
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.substring(7);
       userId = jwt.verify(token, process.env.JWT_SECRET).id;
     }
     const [payment] = await conn.query(
       "UPDATE `penalties` SET `pstatus`=?,`PayedArt`=?,`confirmedBy`=? WHERE `p_id`=?",
-      ["paid", dt, userId, pid]
+      ["paid", dt, userId, pid],
     );
     return res.json({ status: 201, message: "pay successfully", payment });
   } catch (error) {
@@ -77,7 +78,7 @@ const payPenality = async (req, res) => {
 const getSelectList = async (req, res) => {
   try {
     const [list] = await conn.query(
-      "SELECT ptId as value, CONCAT(title,' (',amount,')') as name,amount from ptypes"
+      "SELECT ptId as value, CONCAT(title,' (',amount,')') as name,amount from ptypes",
     );
     return res.json(list);
   } catch (error) {
@@ -106,10 +107,52 @@ const getMemberPenalties = async (req, res) => {
   try {
     const [penalties] = await conn.query(
       "SELECT id,firstName,lastName,telephone,date,amount,PayedArt,confirmedBy,p_id, pstatus, pType as reason FROM penalties INNER JOIN members ON id = memberId WHERE id = ? ORDER BY pstatus,date",
-      [memberIdNum]
+      [memberIdNum],
     );
 
     return res.json(penalties);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+const createPenaltyType = async (req, res) => {
+  try {
+    const { title, amount, description } = req.body;
+    if (!title || !amount) {
+      return res.status(400).json({ error: "Title and amount are required" });
+    }
+    const [result] = await conn.query(
+      "INSERT INTO ptypes (title, amount, description) VALUES (?, ?, ?)",
+      [title, amount, description || ""],
+    );
+    return res
+      .status(201)
+      .json({ message: "Penalty type created", id: result.insertId });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+const updatePenaltyType = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, amount, description } = req.body;
+    await conn.query(
+      "UPDATE ptypes SET title=?, amount=?, description=? WHERE ptId=?",
+      [title, amount, description || "", id],
+    );
+    return res.json({ message: "Penalty type updated" });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+const deletePenaltyType = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await conn.query("DELETE FROM ptypes WHERE ptId=?", [id]);
+    return res.json({ message: "Penalty type deleted" });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -122,4 +165,7 @@ module.exports = {
   payPenality,
   getSelectList,
   getMemberPenalties,
+  createPenaltyType,
+  updatePenaltyType,
+  deletePenaltyType,
 };
