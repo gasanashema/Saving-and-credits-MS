@@ -8,7 +8,9 @@ const {
   getMemberPenalties,
   createPenaltyType,
   updatePenaltyType,
+
   deletePenaltyType,
+  getAllPenaltyTypes,
 } = require("../services/Penalities.service");
 const {
   verifySuperAdmin,
@@ -25,6 +27,7 @@ penaltiesRouter.put("/pay/:pid", verifyAdmin, payPenality);
 penaltiesRouter.get("/member/:memberId", verifyToken, getMemberPenalties);
 
 // Penalty Types Routes
+penaltiesRouter.get("/types", verifyToken, getAllPenaltyTypes);
 penaltiesRouter.post("/types", verifySuperAdmin, createPenaltyType);
 penaltiesRouter.put("/types/:id", verifySuperAdmin, updatePenaltyType);
 penaltiesRouter.delete("/types/:id", verifySuperAdmin, deletePenaltyType);
