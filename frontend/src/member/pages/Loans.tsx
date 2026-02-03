@@ -248,6 +248,11 @@ const Loans: React.FC = () => {
     setIsViewModalOpen(true);
   };
 
+  const handlePayNow = (loan: UiLoan) => {
+    setSelectedLoan(loan);
+    setIsPaymentModalOpen(true);
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
 
@@ -491,6 +496,14 @@ const Loans: React.FC = () => {
                     <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">{loan.progress}%</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    {loan.status === 'active' || loan.status === 'approved' ? (
+                      <button 
+                        onClick={() => handlePayNow(loan)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded mr-2"
+                      >
+                        {t('payNow')}
+                      </button>
+                    ) : null}
                     <button onClick={() => handleViewLoan(loan)} className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">{t('viewDetails')}</button>
                   </td>
                 </motion.tr>
@@ -695,7 +708,7 @@ const Loans: React.FC = () => {
               </div>
               <h2 className="text-xl font-bold text-gray-800">MTN Mobile Money</h2>
             </div>
-            <p className="text-gray-700 text-sm">Fake Payment Demo</p>
+            <p className="text-gray-700 text-sm">Payment Demo</p>
           </div>
 
           <form onSubmit={handlePaymentSubmit} className="space-y-6">
@@ -824,12 +837,12 @@ const Loans: React.FC = () => {
 
       {/* Apply for Loan Modal */}
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title={t('applyForLoan')} size="lg">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-3">
             
             {/* Loan Package Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Loan Package</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Loan Package</label>
               <select
                 value={selectedPackageId || ''}
                 onChange={(e) => setSelectedPackageId(Number(e.target.value))}
@@ -846,11 +859,11 @@ const Loans: React.FC = () => {
 
             {/* Eligibility Banner */}
             {!eligibilityLoading && (
-              <div className={`p-4 rounded-xl border ${isEligible ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                <h4 className={`font-semibold ${isEligible ? 'text-green-800' : 'text-red-800'}`}>
-                  {isEligible ? '✅ You are Eligible' : '❌ Not Eligible'}
+              <div className={`p-3 rounded-lg border ${isEligible ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <h4 className={`font-medium ${isEligible ? 'text-green-800' : 'text-red-800'}`}>
+                  {isEligible ? '✅ Eligible' : '❌ Not Eligible'}
                 </h4>
-                <p className={`text-sm ${isEligible ? 'text-green-700' : 'text-red-700'}`}>
+                <p className={`text-xs ${isEligible ? 'text-green-700' : 'text-red-700'}`}>
                   Max Limit: <strong>{formatCurrency(maxLoanLimit)}</strong>
                 </p>
                 {!isEligible && eligibility?.reason && <p className="text-xs text-red-600 mt-1">{eligibility.reason}</p>}
@@ -880,23 +893,23 @@ const Loans: React.FC = () => {
               </select>
             </div>
 
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 p-6 rounded-xl border border-green-200 dark:border-green-700">
-              <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Loan Terms Preview</h4>
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/30 dark:to-blue-900/30 p-3 rounded-lg border border-green-200 dark:border-green-700">
+              <h4 className="text-sm font-medium text-gray-800 dark:text-white mb-2">Loan Terms Preview</h4>
               {loanAmount === 0 ? (
-                <p className="text-center text-gray-500 dark:text-gray-400">Enter a loan amount to see the calculations</p>
+                <p className="text-center text-xs text-gray-500 dark:text-gray-400">Enter amount to see calculations</p>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Interest Rate</p>
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">{rate}%</p>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Rate</p>
+                    <p className="text-lg font-bold text-green-600 dark:text-green-400">{rate}%</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Duration</p>
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{duration} months</p>
+                  <div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Duration</p>
+                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{duration}m</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Amount to Pay</p>
-                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{formatCurrency(amountToPay)}</p>
+                  <div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Total Pay</p>
+                    <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{formatCurrency(amountToPay)}</p>
                   </div>
                 </div>
               )}
@@ -904,7 +917,7 @@ const Loans: React.FC = () => {
 
             <div>
               <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('notes')}</label>
-              <textarea id="notes" name="notes" value={newLoan.notes} onChange={handleInputChange} rows={3} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" placeholder={t('additionalDetails')}></textarea>
+              <textarea id="notes" name="notes" value={newLoan.notes} onChange={handleInputChange} rows={2} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" placeholder={t('additionalDetails')}></textarea>
             </div>
           </div>
 
