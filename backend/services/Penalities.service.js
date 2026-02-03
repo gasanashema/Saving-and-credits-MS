@@ -158,6 +158,15 @@ const deletePenaltyType = async (req, res) => {
   }
 };
 
+const getAllPenaltyTypes = async (req, res) => {
+  try {
+    const [types] = await conn.query("SELECT * FROM ptypes ORDER BY title");
+    return res.json(types);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   addPenalities,
   getPenalities,
@@ -168,4 +177,5 @@ module.exports = {
   createPenaltyType,
   updatePenaltyType,
   deletePenaltyType,
+  getAllPenaltyTypes,
 };

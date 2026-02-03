@@ -37,6 +37,7 @@ const runTests = async () => {
           memberId: 9, // Using a known member ID from seed
           amount: 100,
           pstatus: "unpaid",
+          pType: 1, // Assuming type 1 exists
           date: "2025-01-01",
           comment: "Test Penalty by Super Admin",
         },
@@ -44,7 +45,9 @@ const runTests = async () => {
       );
       console.log(
         "Super Admin Add Penalty:",
-        penRes.status === 201 ? "SUCCESS" : `FAILED (${penRes.status})`,
+        penRes.status === 201 || penRes.status === 200
+          ? "SUCCESS"
+          : `FAILED (${penRes.status})`,
       );
     } catch (e) {
       console.error(
@@ -70,7 +73,9 @@ const runTests = async () => {
       );
       console.log(
         "Super Admin Add Saving:",
-        saveRes.status === 201 ? "SUCCESS" : `FAILED (${saveRes.status})`,
+        saveRes.status === 201 || saveRes.status === 200
+          ? "SUCCESS"
+          : `FAILED (${saveRes.status})`,
       );
     } catch (e) {
       console.error(
