@@ -10,16 +10,30 @@ const {
   getSavingChanges,
   getAllSavings,
   getMemberSavings,
-  getMembersSavingsOverview
+  getMembersSavingsOverview,
+  createSavingType,
+  updateSavingType,
+  deleteSavingType,
 } = require("../services/saving.service");
-savingRouter.post("/", addSavig);
-savingRouter.put("/", editSaving);
-savingRouter.get("/overview", getMembersSavingsOverview);
-savingRouter.get("/:limit", getAllSavings);
-savingRouter.post("/data", getSavings);
-savingRouter.get("/on/:date", getSavings);
-savingRouter.post("/complete", completeSaving);
-savingRouter.get("/type/list", getSavingSelectList);
-savingRouter.get("/changes/:id",getSavingChanges)
-savingRouter.get("/transactions/:memberId", getMemberSavings);
+const {
+  verifySuperAdmin,
+  verifyAdmin,
+  verifyToken,
+} = require("../middleware/auth.middleware");
+
+savingRouter.post("/", verifyAdmin, addSavig);
+savingRouter.put("/", verifyAdmin, editSaving);
+savingRouter.get("/overview", verifyToken, getMembersSavingsOverview);
+savingRouter.get("/:limit", verifyToken, getAllSavings);
+savingRouter.post("/data", verifyToken, getSavings);
+savingRouter.get("/on/:date", verifyToken, getSavings);
+savingRouter.post("/complete", verifyAdmin, completeSaving);
+savingRouter.get("/type/list", verifyToken, getSavingSelectList);
+savingRouter.get("/changes/:id", verifyToken, getSavingChanges);
+savingRouter.get("/transactions/:memberId", verifyToken, getMemberSavings);
+
+// Super Admin Routes for Saving Types
+savingRouter.post("/types", verifySuperAdmin, createSavingType);
+savingRouter.put("/types/:id", verifySuperAdmin, updateSavingType);
+savingRouter.delete("/types/:id", verifySuperAdmin, deleteSavingType);
 module.exports = savingRouter;
