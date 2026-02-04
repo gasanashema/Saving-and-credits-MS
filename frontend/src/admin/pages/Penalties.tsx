@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
-import { MagnifyingGlassIcon, PlusIcon, ExclamationTriangleIcon, UserIcon, PhoneIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, PlusIcon, ExclamationTriangleIcon, UserIcon, PhoneIcon, CheckCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
+import useAllMembers from '../../hooks/useAllMembers';
 import { toast } from 'sonner';
 import server from '../../utils/server';
 
@@ -28,16 +29,19 @@ interface PenaltyType {
 interface NewPenalty {
   pType: string;
   amount: string;
-  memberId: string;
+  memberIds: number[];
 }
 
 const Penalties: React.FC = () => {
   const { t } = useLanguage();
+  const { members } = useAllMembers();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedPenalty, setSelectedPenalty] = useState<Penalty | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [memberSearchInput, setMemberSearchInput] = useState('');
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   
   const [penalties, setPenalties] = useState<Penalty[]>([]);
   const [penaltyTypes, setPenaltyTypes] = useState<PenaltyType[]>([]);
@@ -48,14 +52,20 @@ const Penalties: React.FC = () => {
   const [newPenalty, setNewPenalty] = useState<NewPenalty>({
     pType: '',
     amount: '',
-    memberId: ''
+    memberIds: []
   });
 
   const [errors, setErrors] = useState({
     pType: '',
     amount: '',
-    memberId: ''
+    memberIds: ''
   });
+
+  // Filter members based on search
+  const filteredMembers = members.filter(member =>
+    `${member.firstName} ${member.lastName}`.toLowerCase().includes(memberSearchInput.toLowerCase()) ||
+    String(member.id).includes(memberSearchInput)
+  );
 
   const fetchPenalties = async () => {
     try {
@@ -103,28 +113,42 @@ const Penalties: React.FC = () => {
     }));
   };
 
+  const toggleMember = (memberId: number) => {
+    setNewPenalty(prev => ({
+      ...prev,
+      memberIds: prev.memberIds.includes(memberId)
+        ? prev.memberIds.filter(id => id !== memberId)
+        : [...prev.memberIds, memberId]
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPenalty.pType || !newPenalty.amount || !newPenalty.memberId) {
+    if (!newPenalty.pType || !newPenalty.amount || newPenalty.memberIds.length === 0) {
       setErrors({
         pType: !newPenalty.pType ? 'Penalty type is required' : '',
         amount: !newPenalty.amount ? 'Amount is required' : '',
-        memberId: !newPenalty.memberId ? 'Member ID is required' : ''
+        memberIds: newPenalty.memberIds.length === 0 ? 'Select at least one member' : ''
       });
       return;
     }
 
     try {
-      await server.post('/penalities', {
-        pType: Number(newPenalty.pType),
-        amount: Number(newPenalty.amount),
-        memberId: Number(newPenalty.memberId)
-      });
+      // Create penalties for all selected members
+      const promises = newPenalty.memberIds.map(memberId =>
+        server.post('/penalities', {
+          pType: Number(newPenalty.pType),
+          amount: Number(newPenalty.amount),
+          memberId: memberId
+        })
+      );
 
-      setNewPenalty({ pType: '', amount: '', memberId: '' });
+      await Promise.all(promises);
+      setNewPenalty({ pType: '', amount: '', memberIds: [] });
+      setMemberSearchInput('');
       setIsAddModalOpen(false);
       fetchPenalties();
-      toast.success('Penalty recorded successfully');
+      toast.success(`Penalty recorded for ${newPenalty.memberIds.length} member(s)`);
     } catch (error) {
       console.error('Penalty error:', error);
       toast.error('Failed to record penalty');
@@ -347,23 +371,81 @@ const Penalties: React.FC = () => {
       {/* Add Penalty Modal */}
       <Modal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setMemberSearchInput('');
+        }}
         title="Record Penalty"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="memberId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Member ID *
+            <label htmlFor="members" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Select Members * ({newPenalty.memberIds.length} selected)
             </label>
-            <input
-              type="text"
-              id="memberId"
-              name="memberId"
-              value={newPenalty.memberId}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
-            />
-            {errors.memberId && <p className="mt-1 text-sm text-red-600">{errors.memberId}</p>}
+            <div className="mt-1 relative">
+              <input
+                type="text"
+                placeholder="Search members by name or ID..."
+                value={memberSearchInput}
+                onChange={(e) => {
+                  setMemberSearchInput(e.target.value);
+                  setShowMemberDropdown(true);
+                }}
+                onFocus={() => setShowMemberDropdown(true)}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+              />
+              
+              {showMemberDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-64 overflow-y-auto">
+                  {filteredMembers.length > 0 ? (
+                    filteredMembers.map((member) => (
+                      <label
+                        key={member.id}
+                        className="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={newPenalty.memberIds.includes(member.id)}
+                          onChange={() => toggleMember(member.id)}
+                          className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                        />
+                        <span className="ml-3 text-sm text-gray-900 dark:text-white">
+                          {member.firstName} {member.lastName} (ID: {member.id})
+                        </span>
+                      </label>
+                    ))
+                  ) : (
+                    <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">No members found</div>
+                  )}
+                </div>
+              )}
+              
+              {errors.memberIds && <p className="mt-1 text-sm text-red-600">{errors.memberIds}</p>}
+            </div>
+
+            {/* Selected Members Tags */}
+            {newPenalty.memberIds.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {newPenalty.memberIds.map((memberId) => {
+                  const member = members.find(m => m.id === memberId);
+                  return (
+                    <div
+                      key={memberId}
+                      className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-3 py-1 rounded-full text-sm flex items-center"
+                    >
+                      <span>{member?.firstName} {member?.lastName}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleMember(memberId)}
+                        className="ml-2 hover:text-red-600 dark:hover:text-red-400"
+                      >
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div>
@@ -410,7 +492,10 @@ const Penalties: React.FC = () => {
           <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
-              onClick={() => setIsAddModalOpen(false)}
+              onClick={() => {
+                setIsAddModalOpen(false);
+                setMemberSearchInput('');
+              }}
               className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Cancel

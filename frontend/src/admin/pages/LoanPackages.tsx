@@ -8,14 +8,15 @@ import { toast } from 'sonner';
 
 const LoanPackages: React.FC = () => {
   const { packages, loading, error, refresh } = useLoanPackages();
+  console.log("Packages List:", packages);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<LoanPackage | null>(null);
   
   const [formData, setFormData] = useState<Partial<LoanPackage>>({
     name: '',
     min_savings: 0,
+    max_loan_amount: 0,
     min_membership_months: 3,
-    loan_multiplier: 3.0,
     repayment_duration_months: 12,
     interest_rate: 18,
     description: '',
@@ -44,8 +45,8 @@ const LoanPackages: React.FC = () => {
       setFormData({
         name: '',
         min_savings: 0,
+        max_loan_amount: 0,
         min_membership_months: 3,
-        loan_multiplier: 3.0,
         repayment_duration_months: 12,
         interest_rate: 18,
         description: '',
@@ -74,8 +75,8 @@ const LoanPackages: React.FC = () => {
             setFormData({
                 name: '',
                 min_savings: 0,
+                max_loan_amount: 0,
                 min_membership_months: 3,
-                loan_multiplier: 3.0,
                 repayment_duration_months: 12,
                 interest_rate: 18,
                 description: '',
@@ -114,16 +115,17 @@ const LoanPackages: React.FC = () => {
               <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                  <div className="flex justify-between">
                     <span>Min Savings:</span>
-                    <span className="font-semibold">{pkg.min_savings.toLocaleString()} RWF</span>
+                    <span className="font-semibold">{(pkg.min_savings || 0).toLocaleString()} RWF</span>
+                 </div>
+                 <div className="flex justify-between">
+                    <span>Max Loan Amount:</span>
+                    <span className="font-semibold text-green-600 dark:text-green-400">{(pkg.max_loan_amount || 0).toLocaleString()} RWF</span>
                  </div>
                  <div className="flex justify-between">
                     <span>Min Membership:</span>
                     <span className="font-semibold">{pkg.min_membership_months} months</span>
                  </div>
-                 <div className="flex justify-between">
-                    <span>Multiplier:</span>
-                    <span className="font-semibold">{pkg.loan_multiplier}x</span>
-                 </div>
+
                  <div className="flex justify-between">
                     <span>Interest Rate:</span>
                     <span className="font-semibold">{pkg.interest_rate}%</span>
@@ -178,11 +180,11 @@ const LoanPackages: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Loan Multiplier</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Loan Amount (RWF)</label>
                     <input 
-                        type="number" step="0.1" required 
-                        value={formData.loan_multiplier} 
-                        onChange={e => setFormData({...formData, loan_multiplier: Number(e.target.value)})}
+                        type="number" required 
+                        value={formData.max_loan_amount} 
+                        onChange={e => setFormData({...formData, max_loan_amount: Number(e.target.value)})}
                         className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
@@ -209,7 +211,8 @@ const LoanPackages: React.FC = () => {
                   </div>
                </div>
 
-               <div>
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Min Membership (Months)</label>
                     <input 
                         type="number" required 
@@ -217,6 +220,7 @@ const LoanPackages: React.FC = () => {
                         onChange={e => setFormData({...formData, min_membership_months: Number(e.target.value)})}
                         className="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
+                  </div>
                </div>
 
                <div>

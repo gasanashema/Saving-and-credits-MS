@@ -17,16 +17,16 @@ const getPackageById = async (id) => {
 
 const createPackage = async (req, res) => {
   try {
-    const { name, min_savings, min_membership_months, loan_multiplier, repayment_duration_months, interest_rate, description } = req.body;
+    const { name, min_savings, max_loan_amount, min_membership_months, repayment_duration_months, interest_rate, description } = req.body;
     
     // Basic validation
-    if (!name || !min_savings || !loan_multiplier) {
+    if (!name || !min_savings || !max_loan_amount) {
         return res.status(400).json({ error: "Missing required fields" });
     }
 
     const [result] = await conn.query(
-      "INSERT INTO loan_packages (name, min_savings, min_membership_months, loan_multiplier, repayment_duration_months, interest_rate, description) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [name, min_savings, min_membership_months, loan_multiplier, repayment_duration_months, interest_rate, description]
+      "INSERT INTO loan_packages (name, min_savings, max_loan_amount, min_membership_months, repayment_duration_months, interest_rate, description) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [name, min_savings, max_loan_amount, min_membership_months, repayment_duration_months, interest_rate, description]
     );
 
     return res.status(201).json({ message: "Package created", id: result.insertId });
@@ -42,11 +42,11 @@ const createPackage = async (req, res) => {
 const updatePackage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, min_savings, min_membership_months, loan_multiplier, repayment_duration_months, interest_rate, description, status } = req.body;
+    const { name, min_savings, max_loan_amount, min_membership_months, repayment_duration_months, interest_rate, description, status } = req.body;
     
     await conn.query(
-      "UPDATE loan_packages SET name=?, min_savings=?, min_membership_months=?, loan_multiplier=?, repayment_duration_months=?, interest_rate=?, description=?, status=? WHERE id=?",
-      [name, min_savings, min_membership_months, loan_multiplier, repayment_duration_months, interest_rate, description, status, id]
+      "UPDATE loan_packages SET name=?, min_savings=?, max_loan_amount=?, min_membership_months=?, repayment_duration_months=?, interest_rate=?, description=?, status=? WHERE id=?",
+      [name, min_savings, max_loan_amount, min_membership_months, repayment_duration_months, interest_rate, description, status, id]
     );
 
     return res.json({ message: "Package updated" });

@@ -102,10 +102,9 @@ CREATE TABLE `savingtypes` (
 --
 
 INSERT INTO `savingtypes` (`stId`, `title`, `Description`, `amount`) VALUES
-(0, 'utateye', 'gusiba', 0),
-(1, 'Main Share', 'BIG SHARE', 10000),
-(2, 'basic share', 'basic', 3000),
-(3, 'Medium Share', 'Middle size share', 5000);
+(0, 'Main Share', 'BIG SHARE', 10000),
+(1, 'basic share', 'basic', 3000),
+(2, 'Medium Share', 'Middle size share', 5000);
 
 -- --------------------------------------------------------
 
@@ -127,8 +126,8 @@ CREATE TABLE `ptypes` (
 --
 
 INSERT INTO `ptypes` (`ptId`, `title`, `amount`, `description`) VALUES
-(0, 'GUSIBA GUTERA', 500, 'kurenza amasaha...'),
-(1, 'GUSAKUZA', 300, 'Guteza urusaku...'),
+(0, 'GUSIBA INAMA', 500, 'kurenza amasaha...'),
+(1, 'GUTINDA KWISHYURA', 300, 'kudatanga umusanzu...'),
 (2, 'GUKERERWA', 200, 'kuza nyuma...');
 
 -- --------------------------------------------------------
@@ -261,6 +260,7 @@ CREATE TABLE `loan_packages` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
   `min_savings` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `max_loan_amount` decimal(15,2) NOT NULL DEFAULT 0.00,
   `min_membership_months` int(11) NOT NULL DEFAULT 0,
   `loan_multiplier` decimal(5,2) NOT NULL DEFAULT 1.00,
   `repayment_duration_months` int(11) NOT NULL DEFAULT 1,
@@ -277,11 +277,11 @@ CREATE TABLE `loan_packages` (
 -- Dumping data for table `loan_packages`
 --
 
-INSERT INTO `loan_packages` (`name`, `min_savings`, `min_membership_months`, `loan_multiplier`, `repayment_duration_months`, `interest_rate`, `description`) VALUES
-('Standard Loan', 300000.00, 6, 2.00, 12, 18.00, 'Standard loan for established members'),
-('Progressive Saver Loan', 500000.00, 12, 3.00, 18, 16.00, 'For members with higher savings history'),
-('Loyalty Advantage Loan', 1000000.00, 24, 4.00, 24, 14.00, 'Best rates for long-term members'),
-('Emergency Loan', 150000.00, 3, 1.00, 6, 0.00, 'Quick small loans for emergencies');
+INSERT INTO `loan_packages` (`id`, `name`, `min_savings`, `max_loan_amount`, `min_membership_months`, `loan_multiplier`, `repayment_duration_months`, `interest_rate`, `description`, `status`) VALUES
+(1, 'Standard Loan', 300000.00, 10000000.00, 6, 2.00, 12, 18.00, 'Standard loan for established members', 'active'),
+(2, 'Progressive Saver Loan', 500000.00, 2000000.00, 12, 3.00, 18, 16.00, 'For members with higher savings history', 'active'),
+(3, 'Loyalty Advantage Loan', 1000000.00, 1000000.00, 24, 4.00, 24, 14.00, 'Best rates for long-term members', 'active'),
+(4, 'Emergency Loan', 50000.00, 50000.00, 3, 1.00, 0, 0.50, 'Quick small loans for emergencies', 'active');
 
 -- --------------------------------------------------------
 
@@ -384,30 +384,13 @@ INSERT INTO `loan_configs` (`id`, `config_key`, `config_value`, `description`, `
 -- Table structure for table `loan_eligibility_logs`
 --
 
-DROP TABLE IF EXISTS `loan_eligibility_logs`;
-CREATE TABLE `loan_eligibility_logs` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `member_id` int(11) NOT NULL,
-  `calculation_date` datetime NOT NULL DEFAULT current_timestamp(),
-  `total_savings` decimal(15,2) NOT NULL DEFAULT 0.00,
-  `base_limit` decimal(15,2) NOT NULL DEFAULT 0.00,
-  `consistency_factor` decimal(5,2) NOT NULL DEFAULT 1.00,
-  `repayment_factor` decimal(5,2) NOT NULL DEFAULT 1.00,
-  `final_limit` decimal(15,2) NOT NULL DEFAULT 0.00,
-  `is_eligible` tinyint(1) NOT NULL DEFAULT 0,
-  `rejection_reason` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_member_date` (`member_id`,`calculation_date`),
-  CONSTRAINT `fk_log_member` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 
 --
 -- Dumping data for table `loan_eligibility_logs`
 --
 
-INSERT INTO `loan_eligibility_logs` (`id`, `member_id`, `calculation_date`, `total_savings`, `base_limit`, `consistency_factor`, `repayment_factor`, `final_limit`, `is_eligible`, `rejection_reason`) VALUES
-(1, 9, '2026-01-13 23:05:02', 130000.00, 390000.00, 0.80, 1.00, 312000.00, 1, NULL),
-(2, 9, '2026-01-13 23:05:09', 130000.00, 390000.00, 0.80, 1.00, 312000.00, 1, NULL);
+
 
 -- --------------------------------------------------------
 
@@ -537,7 +520,7 @@ ALTER TABLE `loan_packages` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_IN
 ALTER TABLE `loan` MODIFY `loanId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 ALTER TABLE `loanpayment` MODIFY `pay_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 ALTER TABLE `loan_configs` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
-ALTER TABLE `loan_eligibility_logs` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
 ALTER TABLE `notification_groups` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 ALTER TABLE `notifications` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 ALTER TABLE `notification_group_members` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
