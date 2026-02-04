@@ -245,8 +245,8 @@ const Login: React.FC = () => {
 
           {/* Demo Info */}
           <div className="text-center text-sm text-gray-500 dark:text-gray-400">
-            <p>Demo admin: admin@unitysave.com / password</p>
-            <p>Demo member: +250788000000 / password</p>
+            <p>Demo admin: alice@example.com / 12345</p>
+            <p>Demo member: 0781884859 / 12345</p>
           </div>
         </form>
       </motion.div>

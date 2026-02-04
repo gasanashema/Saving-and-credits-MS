@@ -59,6 +59,7 @@ export interface LoanPackage {
   id: number;
   name: string;
   min_savings: number;
+  max_loan_amount: number;
   min_membership_months: number;
   loan_multiplier: number;
   repayment_duration_months: number;

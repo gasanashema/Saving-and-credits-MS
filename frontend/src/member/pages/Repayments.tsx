@@ -5,6 +5,7 @@ import { PlusIcon, CalendarIcon, UserIcon, PhoneIcon, CurrencyDollarIcon } from 
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
 import useMemberPaymentHistory from '../../hooks/useMemberPaymentHistory';
+import useLoanPaymentDetails from '../../hooks/useLoanPaymentDetails';
 import server from '../../utils/server';
 
 interface Payment {
@@ -43,6 +44,17 @@ const Repayments: React.FC = () => {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const { payments, summary, loading, error, refresh } = useMemberPaymentHistory();
+  
+  // Payment modal state
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Payment | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentPhone, setPaymentPhone] = useState('');
+  const [paymentErrors, setPaymentErrors] = useState({ amount: '', phone: '' });
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  // Payment details for selected loan
+  const { paymentDetails, loading: paymentLoading, refresh: refreshPaymentDetails } = useLoanPaymentDetails(selectedLoanForPayment?.loanId || null);
   console.log('Repayments page: payments data:', payments);
   console.log('Repayments page: summary:', summary);
 
@@ -78,6 +90,55 @@ const Repayments: React.FC = () => {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value);
+  };
+
+  const handlePayNow = (payment: Payment) => {
+    setSelectedLoanForPayment(payment);
+    setPaymentAmount('');
+    setPaymentPhone(payment.telephone || '');
+    setIsPaymentModalOpen(true);
+  };
+
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLoanForPayment) return;
+
+    const amount = Number(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setPaymentErrors({ amount: t('invalidAmount') || 'Invalid amount', phone: '' });
+      return;
+    }
+
+    if (!paymentPhone.trim()) {
+      setPaymentErrors({ amount: '', phone: 'Phone number is required' });
+      return;
+    }
+
+    if (paymentDetails && amount > paymentDetails.summary.remainingAmount) {
+      setPaymentErrors({ amount: 'Amount exceeds remaining balance', phone: '' });
+      return;
+    }
+
+    setIsProcessingPayment(true);
+
+    try {
+      const response = await server.put('/loans/pay', {
+        loanId: selectedLoanForPayment.loanId,
+        amount,
+        phone: paymentPhone
+      });
+
+      setIsPaymentModalOpen(false);
+      setPaymentAmount('');
+      setPaymentPhone('');
+      toast.success('Payment completed successfully! 🎉');
+      refresh();
+    } catch (error) {
+      console.error('Payment recording error:', error);
+      toast.error('Failed to process payment. Please try again.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   console.log('Repayments page: loading:', loading, 'error:', error);
@@ -143,6 +204,14 @@ const Repayments: React.FC = () => {
                   {formatCurrency(Number(payment.remaining_amount || 0))}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                  {Number(payment.remaining_amount || 0) > 0 && (
+                    <button
+                      onClick={() => handlePayNow(payment)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded mr-2"
+                    >
+                      {t('payNow')}
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setSelectedPayment(payment);
@@ -150,7 +219,7 @@ const Repayments: React.FC = () => {
                     }}
                     className="text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300"
                   >
-                    View More
+                    {t('viewDetails')}
                   </button>
                 </td>
               </motion.tr>
@@ -310,6 +379,119 @@ const Repayments: React.FC = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+
+      {/* MTN Mobile Money Payment Modal */}
+      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="">
+        <div className="space-y-6">
+          {/* MTN Header */}
+          <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 p-6 rounded-xl text-center">
+            <div className="flex items-center justify-center mb-2">
+              <div className="bg-white rounded-full p-2 mr-3">
+                <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">MTN</span>
+                </div>
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">MTN Mobile Money</h2>
+            </div>
+            <p className="text-gray-700 text-sm">Payment Demo</p>
+          </div>
+
+          <form onSubmit={handlePaymentSubmit} className="space-y-6">
+            {paymentDetails && (
+              <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl border border-blue-200 dark:border-blue-700">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-blue-700 dark:text-blue-300">Remaining Balance:</span>
+                  <span className="font-semibold text-blue-800 dark:text-blue-200">{formatCurrency(paymentDetails.summary.remainingAmount)}</span>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="paymentAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Amount (RWF) *</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <span className="text-gray-500 dark:text-gray-400">RWF</span>
+                </div>
+                <input
+                  type="number"
+                  id="paymentAmount"
+                  value={paymentAmount}
+                  onChange={(e) => {
+                    setPaymentAmount(e.target.value);
+                    if (paymentErrors.amount) setPaymentErrors(prev => ({ ...prev, amount: '' }));
+                  }}
+                  min="1"
+                  step="1"
+                  max={paymentDetails?.summary.remainingAmount || undefined}
+                  className="w-full pl-12 px-3 py-3 border-2 border-yellow-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 dark:bg-gray-700 dark:text-white dark:border-yellow-600"
+                  placeholder="Enter amount"
+                  disabled={isProcessingPayment}
+                />
+              </div>
+              {paymentErrors.amount && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{paymentErrors.amount}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="paymentPhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">MTN Mobile Money Number *</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <span className="text-gray-500 dark:text-gray-400">+250</span>
+                </div>
+                <input
+                  type="tel"
+                  id="paymentPhone"
+                  value={paymentPhone}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/^0+/, '');
+                    setPaymentPhone(value);
+                    if (paymentErrors.phone) setPaymentErrors(prev => ({ ...prev, phone: '' }));
+                  }}
+                  maxLength={9}
+                  className="w-full pl-16 px-3 py-3 border-2 border-yellow-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 dark:bg-gray-700 dark:text-white dark:border-yellow-600"
+                  placeholder="7XXXXXXXX"
+                  disabled={isProcessingPayment}
+                />
+              </div>
+              {paymentErrors.phone && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{paymentErrors.phone}</p>}
+              <p className="mt-1 text-xs text-gray-500">Enter the phone number registered with MTN Mobile Money</p>
+            </div>
+
+            <div className="flex space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="flex-1 px-4 py-3 text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                disabled={isProcessingPayment}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center justify-center"
+                disabled={isProcessingPayment}
+              >
+                {isProcessingPayment ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <span className="mr-2">Pay</span>
+                    {paymentAmount && (
+                      <span className="font-bold">{formatCurrency(Number(paymentAmount))}</span>
+                    )}
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </Modal>
 
 
