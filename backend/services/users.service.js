@@ -1,12 +1,21 @@
 const conn = require("../db/connection");
 
 const addUser = async (req, res) => {
-  const { fullName, email } = req.body;
+  const { fullName, email, role, password } = req.body;
 
   try {
+    // Default password if not provided
+    const defaultPasswordHash =
+      "$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK"; // "12345"
+
+    // Determine role - default to 'admin' if not specified
+    // Note: Validation of who can create what role is done in the route middleware or here via req.user
+    const userRole =
+      role === "supperadmin" || role === "sadmin" ? "supperadmin" : "admin";
+
     const [users] = await conn.query(
-      "INSERT INTO `users`(`fullname`, `role`, `email`) VALUES (?,?,?)",
-      [fullName, "admin", email]
+      "INSERT INTO `users`(`fullname`, `role`, `email`, `password`) VALUES (?,?,?,?)",
+      [fullName, userRole, email, defaultPasswordHash],
     );
     return res.json({ status: 201, message: "new User added", users });
   } catch (error) {
@@ -14,12 +23,12 @@ const addUser = async (req, res) => {
   }
 };
 const updateStatus = async (req, res) => {
-  const { id,action } = req.params;
-  const status = action == "activate" ? 'active' : 'deactivated';
+  const { id, action } = req.params;
+  const status = action == "activate" ? "active" : "deactivated";
   try {
     const [users] = await conn.query(
       "UPDATE users set status = ? where user_id=?",
-      [status, id]
+      [status, id],
     );
     return res.json({ status: 201, message: "new User added", users });
   } catch (error) {
@@ -30,7 +39,7 @@ const updateStatus = async (req, res) => {
 const getAllUsers = async (req, res) => {
   try {
     const [users] = await conn.query(
-      "SELECT `user_id`, `fullname`, `role`, `email`, `password`, `status` FROM `users`"
+      "SELECT `user_id`, `fullname`, `role`, `email`, `password`, `status` FROM `users`",
     );
     return res.json(users);
   } catch (error) {
@@ -41,14 +50,14 @@ const getAllUsers = async (req, res) => {
 const dashBoard = async (req, res) => {
   try {
     let [loans] = await conn.query(
-      "SELECT SUM(amount) AMOUNT,pstatus FROM penalties GROUP BY pstatus"
+      "SELECT SUM(amount) AMOUNT,pstatus FROM penalties GROUP BY pstatus",
     );
     const loanData = {
       paidLoan: loans[1].AMOUNT,
       unpaidLoan: loans[0].AMOUNT,
     };
     const [members] = await conn.query(
-      "SELECT COUNT(*) members, sum(balance) amount FROM `members`"
+      "SELECT COUNT(*) members, sum(balance) amount FROM `members`",
     );
     const data = { loan: loanData, members: members[0] };
     return res.json(data);
@@ -59,7 +68,7 @@ const dashBoard = async (req, res) => {
 const getSelectList = async (req, res) => {
   try {
     const [list] = await conn.query(
-      "SELECT id as value, CONCAT(firstName,' ',lastName) as name from members"
+      "SELECT id as value, CONCAT(firstName,' ',lastName) as name from members",
     );
     return res.json(list);
   } catch (error) {
@@ -72,11 +81,12 @@ const resetPassword = async (req, res) => {
 
   try {
     // Reset to default password "12345" with the provided hash
-    const defaultPasswordHash = '$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK';
+    const defaultPasswordHash =
+      "$2a$12$TvP1sL65u4Kf7I9GPtZOYeCg1OQ8HTH84rOkeXwRVNR0uE4smi4fK";
 
     const [result] = await conn.query(
       "UPDATE users SET password = ? WHERE user_id = ?",
-      [defaultPasswordHash, id]
+      [defaultPasswordHash, id],
     );
 
     if (result.affectedRows === 0) {
@@ -92,7 +102,7 @@ const resetPassword = async (req, res) => {
 const getAdminContacts = async (req, res) => {
   try {
     const [admins] = await conn.query(
-      "SELECT user_id, fullname, telephone, email FROM users WHERE role IN ('admin', 'sadmin', 'supperadmin') AND status = 'active'"
+      "SELECT user_id, fullname, telephone, email FROM users WHERE role IN ('admin', 'sadmin', 'supperadmin') AND status = 'active'",
     );
     return res.json(admins);
   } catch (error) {
@@ -106,5 +116,5 @@ module.exports = {
   dashBoard,
   updateStatus,
   resetPassword,
-  getAdminContacts
+  getAdminContacts,
 };

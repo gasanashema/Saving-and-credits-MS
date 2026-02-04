@@ -8,15 +8,14 @@ const Auth = async (req, res) => {
     let user;
 
     if (role === "admin") {
-      const [userdata] = await conn.query(
-        "SELECT * FROM users WHERE email=?",
-        [username]
-      );
+      const [userdata] = await conn.query("SELECT * FROM users WHERE email=?", [
+        username,
+      ]);
       user = userdata[0];
     } else if (role === "member") {
       const [userdata] = await conn.query(
         "SELECT * FROM members WHERE telephone=?",
-        [username]
+        [username],
       );
       user = userdata[0];
       // console.log(user)
@@ -34,7 +33,9 @@ const Auth = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(200).json({ login: false, error: "Invalid Credentials" });
+      return res
+        .status(200)
+        .json({ login: false, error: "Invalid Credentials" });
     }
 
     // Determine role directly from DB when available (users table contains 'admin' and 'supperadmin')
@@ -50,35 +51,51 @@ const Auth = async (req, res) => {
       }
     } else {
       // No role in DB (likely a member table) - fallback to requested role
-      userRole = role === "admin" ? "admin" : "member";
+      userRole =
+        role === "admin" || role === "sadmin" || role === "supperadmin"
+          ? "admin"
+          : "member";
+      if (
+        (role === "admin" || role === "sadmin" || role === "supperadmin") &&
+        user.role === "member"
+      ) {
+        return res.status(403).json({ error: "Access denied" });
+      }
     }
 
     // Debug: show what columns we got from DB
-    console.log('Authenticated user record from DB (keys):', Object.keys(user));
-    console.log('Authenticated user record from DB (full):', user);
+    console.log("Authenticated user record from DB (keys):", Object.keys(user));
+    console.log("Authenticated user record from DB (full):", user);
 
     // Determine id robustly from any possible column (user_id, id, member_id)
     let id = user.user_id ?? user.id ?? user.member_id ?? null;
 
     // If the id is missing for a member record, try an explicit lookup as a fallback
-    if ((id === null || id === undefined) && role === 'member') {
+    if ((id === null || id === undefined) && role === "member") {
       try {
-        const [idRows] = await conn.query('SELECT id, member_id FROM members WHERE telephone = ? LIMIT 1', [username]);
+        const [idRows] = await conn.query(
+          "SELECT id, member_id FROM members WHERE telephone = ? LIMIT 1",
+          [username],
+        );
         if (idRows && idRows[0]) {
           id = idRows[0].id ?? idRows[0].member_id ?? id;
-          console.log('Fallback member id lookup result:', idRows[0]);
+          console.log("Fallback member id lookup result:", idRows[0]);
         } else {
-          console.log('Fallback member id lookup found no rows for telephone:', username);
+          console.log(
+            "Fallback member id lookup found no rows for telephone:",
+            username,
+          );
         }
       } catch (err) {
-        console.log('Error during fallback id lookup for member:', err.message);
+        console.log("Error during fallback id lookup for member:", err.message);
       }
     }
 
     // Determine fullname from available fields
-    const fullname = user.fullname || `${user.firstName || ""} ${user.lastName || ""}`.trim();
+    const fullname =
+      user.fullname || `${user.firstName || ""} ${user.lastName || ""}`.trim();
 
-    console.log('Resolved id for token/payload:', id);
+    console.log("Resolved id for token/payload:", id);
 
     const token = jwt.sign({ id, role: userRole }, process.env.JWT_SECRET, {
       expiresIn: "1d",

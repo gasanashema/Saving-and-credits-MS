@@ -9,6 +9,8 @@ import AdminSidebar from "../../admin/components/layout/Sidebar";
 import AdminNavbar from "../../admin/components/layout/Navbar";
 import MemberSidebar from "../../member/components/layout/Sidebar";
 import MemberNavbar from "../../member/components/layout/Navbar";
+import SadminSidebar from "../../sadmin/components/layout/Sidebar";
+import SadminNavbar from "../../sadmin/components/layout/Navbar";
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { theme } = useTheme();
@@ -43,8 +45,10 @@ const Layout: React.FC = () => {
           >
             {user?.role === 'admin' ? (
               <AdminSidebar toggleSidebar={toggleSidebar} />
-            ) : (
+            ) : user?.role === 'member' ? (
               <MemberSidebar toggleSidebar={toggleSidebar} />
+            ) : (
+              <SadminSidebar toggleSidebar={toggleSidebar} />
             )}
           </motion.div>
         )}
@@ -52,8 +56,10 @@ const Layout: React.FC = () => {
       <div className="flex flex-col flex-1 w-full overflow-hidden">
         {user?.role === 'admin' ? (
           <AdminNavbar toggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
-        ) : (
+        ) :  user?.role === 'member' ? (
           <MemberNavbar toggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
+        ) : (
+          <SadminNavbar toggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
         )}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50 dark:bg-gray-900">
           <div className="container mx-auto">

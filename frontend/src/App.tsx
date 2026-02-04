@@ -36,6 +36,7 @@ import SuperAdminReports from "./sadmin/pages/Reports";
 import SuperAdminNotifications from "./sadmin/pages/Notifications";
 import SuperAdminSettings from "./sadmin/pages/Settings";
 import SuperAdminChat from "./sadmin/pages/Chat";
+import SuperAdminUtilities from "./sadmin/pages/Utilities";
 
 // Member pages
 import MemberDashboard from "./member/pages/Dashboard";
@@ -67,7 +68,9 @@ export function App() {
               <Route path="/logout" element={<Logout />} />
 
               {/* 🔒 Admin Routes */}
-              <Route element={<ProtectedRoute allowedRoles={["admin", "sadmin"]} />}>
+              <Route
+                element={<ProtectedRoute allowedRoles={["admin", "sadmin"]} />}
+              >
                 <Route path="/admin" element={<Layout />}>
                   <Route index element={<AdminDashboard />} />
                   <Route path="members" element={<AdminMembers />} />
@@ -77,7 +80,10 @@ export function App() {
                   <Route path="repayments" element={<AdminRepayments />} />
                   <Route path="penalties" element={<AdminPenalties />} />
                   <Route path="reports" element={<AdminReports />} />
-                  <Route path="notifications" element={<AdminNotifications />} />
+                  <Route
+                    path="notifications"
+                    element={<AdminNotifications />}
+                  />
                   <Route path="loan-packages" element={<AdminLoanPackages />} />
                   <Route path="chat" element={<AdminChat />} />
                   <Route path="settings" element={<AdminSettings />} />
@@ -85,18 +91,26 @@ export function App() {
               </Route>
 
               {/* 🔒 Super Admin Routes */}
-              <Route element={<ProtectedRoute allowedRoles={["admin", "sadmin"]} />}>
+              <Route
+                element={<ProtectedRoute allowedRoles={["admin", "sadmin"]} />}
+              >
                 <Route path="/super-admin" element={<Layout />}>
                   <Route index element={<SuperAdminDashboard />} />
                   <Route path="dashboard" element={<SuperAdminDashboard />} />
-                  <Route path="members" element={<SuperAdminMembers />} />
-                  <Route path="savings" element={<SuperAdminSavings />} />
-                  <Route path="loans" element={<SuperAdminLoans />} />
-                  <Route path="loans/:id" element={<AdminLoanDetail />} /> {/* Reuse Admin Detail for SuperAdmin */}
+                  <Route path="members" element={<AdminMembers />} />
+                  <Route path="savings" element={<AdminSavings />} />
+                  <Route path="loans" element={<AdminLoans />} />
+                  <Route path="loans/:id" element={<AdminLoanDetail />} />{" "}
+                  {/* Reuse Admin Detail for SuperAdmin */}
                   <Route path="repayments" element={<SuperAdminRepayments />} />
                   <Route path="penalties" element={<SuperAdminPenalties />} />
                   <Route path="reports" element={<SuperAdminReports />} />
-                  <Route path="notifications" element={<SuperAdminNotifications />} />
+                  <Route
+                    path="notifications"
+                    element={<SuperAdminNotifications />}
+                  />
+                  <Route path="loan-packages" element={<AdminLoanPackages />} />
+                  <Route path="utilities" element={<SuperAdminUtilities />} />
                   <Route path="chat" element={<SuperAdminChat />} />
                   <Route path="settings" element={<SuperAdminSettings />} />
                 </Route>
@@ -113,7 +127,10 @@ export function App() {
                   <Route path="repayments" element={<MemberRepayments />} />
                   <Route path="penalties" element={<MemberPenalties />} />
                   <Route path="reports" element={<MemberReports />} />
-                  <Route path="notifications" element={<MemberNotifications />} />
+                  <Route
+                    path="notifications"
+                    element={<MemberNotifications />}
+                  />
                   <Route path="help" element={<HelpCenter />} />
                   <Route path="chat" element={<MemberChat />} />
                   <Route path="settings" element={<MemberSettings />} />
