@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { PlusIcon, PencilIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PencilIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import useLoanPackages from '../../hooks/useLoanPackages';
 import server from '../../utils/server';
 import { LoanPackage } from '../../types/loanTypes';
@@ -69,26 +69,6 @@ const LoanPackages: React.FC = () => {
            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Loan Packages</h1>
            <p className="text-gray-500 dark:text-gray-400">Manage loan configurations and eligibility rules.</p>
         </div>
-        <button
-          onClick={() => {
-            setEditingPackage(null);
-            setFormData({
-                name: '',
-                min_savings: 0,
-                max_loan_amount: 0,
-                min_membership_months: 3,
-                repayment_duration_months: 12,
-                interest_rate: 18,
-                description: '',
-                status: 'active'
-            });
-            setIsModalOpen(true);
-          }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center shadow-sm"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Add Package
-        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

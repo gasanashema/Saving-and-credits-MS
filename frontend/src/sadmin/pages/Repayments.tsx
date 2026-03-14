@@ -1,98 +1,19 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
-import { MagnifyingGlassIcon, PlusIcon, CalendarIcon, UserIcon, PhoneIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import { MagnifyingGlassIcon, CalendarIcon, UserIcon, PhoneIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
-import useLoanPayments from '../../hooks/useLoanPayments';
+import useLoanPayments, { Payment } from '../../hooks/useLoanPayments';
 import server from '../../utils/server';
-
-interface Payment {
-  pay_id: number;
-  pay_date: string;
-  amount: number;
-  loanId: number;
-  loan_amount: number;
-  amount_to_pay: number;
-  payedAmount: number;
-  loan_status: string;
-  rate: number;
-  duration: number;
-  request_date: string;
-  approved_date: string | null;
-  purpose: string;
-  firstName: string;
-  lastName: string;
-  telephone: string;
-  recorder_name: string;
-  approver_name?: string;
-  remaining_amount: number;
-  penalty_type?: string;
-  penalty_amount?: number;
-  penalty_status?: string;
-}
-
-interface NewPayment {
-  loanId: string;
-  amount: string;
-  status?: string;
-}
 
 const Repayments: React.FC = () => {
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const { payments, total, loading, error, refresh } = useLoanPayments(50);
-
-  const [newPayment, setNewPayment] = useState<NewPayment>({
-    loanId: '',
-    amount: ''
-  });
-
-  const [errors, setErrors] = useState({
-    loanId: '',
-    amount: ''
-  });
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewPayment(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    setErrors(prev => ({
-      ...prev,
-      [name]: ''
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPayment.loanId || !newPayment.amount) {
-      setErrors({
-        loanId: !newPayment.loanId ? t('loanIdRequired') : '',
-        amount: !newPayment.amount ? t('amountRequired') : ''
-      });
-      return;
-    }
-
-    try {
-      await server.post('/loans/payment', {
-        loanId: Number(newPayment.loanId),
-        amount: Number(newPayment.amount)
-      });
-
-      setNewPayment({ loanId: '', amount: '' });
-      setIsAddModalOpen(false);
-      refresh();
-      toast.success(t('paymentRecorded'));
-    } catch (error) {
-      console.error('Payment error:', error);
-      toast.error(t('paymentError'));
-    }
-  };
 
   const handleMarkAsPaid = async (paymentId: number) => {
     try {
@@ -108,17 +29,17 @@ const Repayments: React.FC = () => {
 
   // Fix the remaining balance calculation in the summary cards
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  const totalRemaining = payments.reduce((sum, p) => sum + Number(p.remaining_amount || 0), 0);
+  const totalRemaining = payments.reduce((sum, p) => sum + Number(p.remainingAmount || 0), 0);
 
   // Fix search functionality
   const filteredPayments = payments.filter(payment => {
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase().trim();
-    const fullName = `${payment.firstName} ${payment.lastName}`.toLowerCase();
+    const fullName = `${payment.firstName || ''} ${payment.lastName || ''}`.toLowerCase();
     return (
       fullName.includes(searchLower) ||
       String(payment.amount).includes(searchLower) ||
-      String(payment.remaining_amount).includes(searchLower)
+      String(payment.remainingAmount).includes(searchLower)
     );
   });
 
@@ -152,7 +73,7 @@ const Repayments: React.FC = () => {
         </div>
       </div>
 
-      {/* Search and Add */}
+      {/* Search */}
       <div className="flex justify-between items-center">
         <div className="relative flex-1 max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -166,13 +87,6 @@ const Repayments: React.FC = () => {
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
           />
         </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="ml-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          {t('recordPayment')}
-        </button>
       </div>
 
       {/* Payments Table */}
@@ -190,22 +104,22 @@ const Repayments: React.FC = () => {
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {filteredPayments.map((payment) => (
               <motion.tr 
-                key={payment.pay_id}
+                key={payment.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(payment.pay_date).toLocaleDateString()}
+                  {new Date(payment.date).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                  {`${payment.firstName} ${payment.lastName}`}
+                  {`${payment.firstName || ''} ${payment.lastName || ''}`}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-emerald-600 dark:text-emerald-400">
                   {formatCurrency(payment.amount)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900 dark:text-white">
-                  {formatCurrency(Number(payment.remaining_amount || 0))}
+                  {formatCurrency(Number(payment.remainingAmount || 0))}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                   <button
@@ -238,7 +152,7 @@ const Repayments: React.FC = () => {
                   <p className="text-purple-100">{t('paymentAmount')}</p>
                   <h3 className="text-2xl font-bold">{formatCurrency(Number(selectedPayment.amount) || 0)}</h3>
                   <p className="text-sm text-purple-200 mt-1">
-                    {new Date(selectedPayment.pay_date).toLocaleDateString()}
+                    {new Date(selectedPayment.date).toLocaleDateString()}
                   </p>
                 </div>
 
@@ -256,32 +170,32 @@ const Repayments: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t('loanAmount')}</span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {formatCurrency(Number(selectedPayment.loan_amount) || 0)}
+                      {formatCurrency(Number(selectedPayment.loanAmount) || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t('totalToPay')}</span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {formatCurrency(Number(selectedPayment.amount_to_pay) || 0)}
+                      {formatCurrency(Number(selectedPayment.amountToPay) || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t('remainingBalance')}</span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {formatCurrency(Number(selectedPayment.remaining_amount || 0))}
+                      {formatCurrency(Number(selectedPayment.remainingAmount) || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t('recorder')}</span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {selectedPayment.recorder_name || 'N/A'}
+                      {selectedPayment.recorderName || 'N/A'}
                     </span>
                   </div>
-                  {selectedPayment.approver_name && (
+                  {selectedPayment.approverName && (
                     <div className="flex justify-between">
                       <span className="text-gray-500">{t('approver')}</span>
                       <span className="font-medium text-gray-900 dark:text-white">
-                        {selectedPayment.approver_name}
+                        {selectedPayment.approverName}
                       </span>
                     </div>
                   )}
@@ -290,12 +204,12 @@ const Repayments: React.FC = () => {
                       <div 
                         className="bg-purple-600 h-2.5 rounded-full" 
                         style={{ 
-                          width: `${Math.min(100, Math.round(((Number(selectedPayment.payedAmount) || 0) / (Number(selectedPayment.amount_to_pay) || 1)) * 100)) || 0}%` 
+                          width: `${Math.min(100, Math.round(((Number(selectedPayment.payedAmount) || 0) / (Number(selectedPayment.amountToPay) || 1)) * 100)) || 0}%` 
                         }} 
                       />
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {Math.min(100, Math.round(((Number(selectedPayment.payedAmount) || 0) / (Number(selectedPayment.amount_to_pay) || 1)) * 100)) || 0}% {t('paid')}
+                      {Math.min(100, Math.round(((Number(selectedPayment.payedAmount) || 0) / (Number(selectedPayment.amountToPay) || 1)) * 100)) || 0}% {t('paid')}
                     </p>
                   </div>
                 </div>
@@ -311,7 +225,7 @@ const Repayments: React.FC = () => {
                   <div>
                     <span className="text-gray-500 block text-sm">{t('name')}</span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {`${selectedPayment.firstName} ${selectedPayment.lastName}`}
+                      {`${selectedPayment.firstName || ''} ${selectedPayment.lastName || ''}`}
                     </span>
                   </div>
                   <div>
@@ -326,7 +240,7 @@ const Repayments: React.FC = () => {
             </div>
 
             {/* Penalty Information */}
-            {selectedPayment.penalty_type && selectedPayment.penalty_type !== 'None' && (
+            {selectedPayment.penaltyType && selectedPayment.penaltyType !== 'None' && (
               <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
                 <h4 className="font-medium text-red-900 dark:text-red-100 flex items-center mb-3">
                   <span className="text-red-500 mr-2">⚠️</span>
@@ -336,23 +250,23 @@ const Repayments: React.FC = () => {
                   <div>
                     <span className="text-red-700 dark:text-red-300 block">Penalty Type</span>
                     <span className="font-medium text-red-900 dark:text-red-100">
-                      {selectedPayment.penalty_type}
+                      {selectedPayment.penaltyType}
                     </span>
                   </div>
                   <div>
                     <span className="text-red-700 dark:text-red-300 block">Amount</span>
                     <span className="font-medium text-red-900 dark:text-red-100">
-                      {formatCurrency(Number(selectedPayment.penalty_amount) || 0)}
+                      {formatCurrency(Number(selectedPayment.penaltyAmount) || 0)}
                     </span>
                   </div>
                   <div>
                     <span className="text-red-700 dark:text-red-300 block">Status</span>
                     <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                      selectedPayment.penalty_status === 'paid' 
+                      selectedPayment.penaltyStatus === 'paid' 
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
                         : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
                     }`}>
-                      {selectedPayment.penalty_status}
+                      {selectedPayment.penaltyStatus}
                     </span>
                   </div>
                 </div>
@@ -360,7 +274,7 @@ const Repayments: React.FC = () => {
             )}
 
             {/* Action Buttons */}
-            {selectedPayment.loan_status !== 'paid' && (
+            {selectedPayment.loanStatus !== 'paid' && (
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
                 <button
                   onClick={() => setIsDetailModalOpen(false)}
@@ -369,7 +283,7 @@ const Repayments: React.FC = () => {
                   Close
                 </button>
                 <button
-                  onClick={() => handleMarkAsPaid(selectedPayment.pay_id)}
+                  onClick={() => handleMarkAsPaid(selectedPayment.id)}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
                 >
                   Mark as Paid
@@ -378,66 +292,6 @@ const Repayments: React.FC = () => {
             )}
           </div>
         )}
-      </Modal>
-
-      {/* Add Payment Modal */}
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title={t('recordPayment')}
-      >
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="loanId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('loanId')} *
-            </label>
-            <input
-              type="text"
-              id="loanId"
-              name="loanId"
-              value={newPayment.loanId}
-              onChange={handleInputChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
-            />
-            {errors.loanId && <p className="mt-1 text-sm text-red-600">{errors.loanId}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('amount')} *
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">RWF</span>
-              </div>
-              <input
-                type="number"
-                id="amount"
-                name="amount"
-                value={newPayment.amount}
-                onChange={handleInputChange}
-                className="pl-12 block w-full rounded-md border-gray-300 focus:border-purple-500 focus:ring-purple-500"
-              />
-            </div>
-            {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={() => setIsAddModalOpen(false)}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              {t('cancel')}
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700"
-            >
-              {t('submit')}
-            </button>
-          </div>
-        </form>
       </Modal>
     </div>
   );

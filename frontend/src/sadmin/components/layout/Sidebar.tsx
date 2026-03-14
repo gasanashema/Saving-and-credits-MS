@@ -14,8 +14,8 @@ import {
   XMarkIcon,
   CurrencyDollarIcon,
   ExclamationTriangleIcon,
-  CubeIcon,
   WrenchScrewdriverIcon,
+  CubeIcon,
 } from "@heroicons/react/24/outline";
 interface SidebarProps {
   toggleSidebar: () => void;
@@ -44,16 +44,6 @@ const Sidebar: React.FC<SidebarProps> = ({ toggleSidebar }) => {
       path: "/super-admin/loans",
       name: t("loans"),
       icon: <BanknotesIcon className="w-6 h-6" />,
-    },
-    {
-      path: "/super-admin/loan-packages",
-      name: "Loan Packages",
-      icon: <CubeIcon className="w-6 h-6" />,
-    },
-    {
-      path: "/super-admin/repayments",
-      name: t("repayments"),
-      icon: <ArrowDownCircleIcon className="w-6 h-6" />,
     },
     {
       path: "/super-admin/penalties",

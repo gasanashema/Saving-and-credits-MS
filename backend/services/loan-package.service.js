@@ -56,9 +56,23 @@ const updatePackage = async (req, res) => {
   }
 };
 
+const deletePackage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await conn.query("DELETE FROM loan_packages WHERE id = ?", [id]);
+
+    return res.json({ message: "Package deleted" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to delete package" });
+  }
+};
+
 module.exports = {
   getAllPackages,
   getPackageById,
   createPackage,
-  updatePackage
+  updatePackage,
+  deletePackage
 };

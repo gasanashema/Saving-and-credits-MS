@@ -24,6 +24,7 @@ const {
   getPackageById,
   createPackage,
   updatePackage,
+  deletePackage,
 } = require("../services/loan-package.service");
 const {
   verifySuperAdmin,
@@ -46,6 +47,7 @@ loanRouter.get("/packages/:id", async (req, res) => {
 });
 loanRouter.post("/packages", verifySuperAdmin, createPackage);
 loanRouter.put("/packages/:id", verifySuperAdmin, updatePackage);
+loanRouter.delete("/packages/:id", verifySuperAdmin, deletePackage);
 
 // Loan Configs Routes (Place before generic params)
 loanRouter.get("/configs", verifyAdmin, getLoanConfigs);

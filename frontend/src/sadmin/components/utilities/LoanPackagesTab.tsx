@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { PlusIcon, PencilIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import useLoanPackages from "../../../hooks/useLoanPackages";
 import server from "../../../utils/server";
 import { LoanPackage } from "../../../types/loanTypes";
@@ -23,6 +23,19 @@ const LoanPackagesTab: React.FC = () => {
     description: "",
     status: "active",
   });
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm("Are you sure you want to delete this loan package?")) {
+      try {
+        await server.delete(`/loans/packages/${id}`);
+        toast.success("Package deleted successfully");
+        refresh();
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to delete package");
+      }
+    }
+  };
 
   const handleEdit = (pkg: LoanPackage) => {
     setEditingPackage(pkg);
@@ -118,12 +131,20 @@ const LoanPackagesTab: React.FC = () => {
                     {pkg.status}
                   </span>
                 </div>
-                <button
-                  onClick={() => handleEdit(pkg)}
-                  className="text-gray-400 hover:text-blue-500"
-                >
-                  <PencilIcon className="h-5 w-5" />
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleEdit(pkg)}
+                    className="text-gray-400 hover:text-blue-500"
+                  >
+                    <PencilIcon className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(pkg.id)}
+                    className="text-gray-400 hover:text-red-500"
+                  >
+                    <TrashIcon className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">

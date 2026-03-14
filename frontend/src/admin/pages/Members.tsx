@@ -241,9 +241,9 @@ const Members: React.FC = () => {
   );
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-RW", {
       style: "currency",
-      currency: "USD",
+      currency: "RWF",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(value);
