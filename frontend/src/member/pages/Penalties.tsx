@@ -12,7 +12,7 @@ interface Penalty {
   date: string;
   amount: number;
   memberId: number;
-  pstatus: 'wait' | 'paid';
+  pstatus: 'wait' | 'paid' | 'pending';
   PayedArt: string | null;
   confirmedBy: number;
   firstName: string;
@@ -28,6 +28,7 @@ const Penalties: React.FC = () => {
   const [selectedPenalty, setSelectedPenalty] = useState<Penalty | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isInstructionModalOpen, setIsInstructionModalOpen] = useState(false);
   const [paymentPhone, setPaymentPhone] = useState('');
 
   const { penalties, total, loading, error, refresh } = useMemberPenalties();
@@ -43,12 +44,14 @@ const Penalties: React.FC = () => {
 
   const handlePayPenalty = async (penaltyId: number) => {
     try {
-      await server.put(`/penalities/pay/${penaltyId}`);
+      await server.put(`/penalities/markPending/${penaltyId}`);
       refresh();
-      toast.success('Penalty marked as paid');
+      toast.success('Penalty marked for processing');
+      setIsInstructionModalOpen(false);
+      setIsDetailModalOpen(false);
     } catch (error) {
       console.error('Payment error:', error);
-      toast.error('Failed to mark penalty as paid');
+      toast.error('Failed to submit penalty');
     }
   };
 
@@ -65,7 +68,8 @@ const Penalties: React.FC = () => {
 
   const totalPenalties = penalties.length;
   const totalPaid = penalties.filter(p => p.pstatus === 'paid').length;
-  const totalPending = penalties.filter(p => p.pstatus === 'wait').length;
+  const totalPendingApproval = penalties.filter(p => p.pstatus === 'pending').length;
+  const totalNotPaid = penalties.filter(p => p.pstatus === 'wait').length;
 
   if (loading) return <div className="p-4 text-gray-500">{t('loading')}</div>;
   if (error) return <div className="p-4 text-red-500">{error}</div>;
@@ -73,7 +77,7 @@ const Penalties: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header with totals */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Penalties</h3>
           <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">{totalPenalties}</p>
@@ -83,8 +87,12 @@ const Penalties: React.FC = () => {
           <p className="mt-2 text-3xl font-bold text-emerald-600">{totalPaid}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Pending</h3>
+          <p className="mt-2 text-3xl font-bold text-yellow-600">{totalPendingApproval}</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Not Paid</h3>
-          <p className="mt-2 text-3xl font-bold text-red-600">{totalPending}</p>
+          <p className="mt-2 text-3xl font-bold text-red-600">{totalNotPaid}</p>
         </div>
       </div>
 
@@ -122,9 +130,11 @@ const Penalties: React.FC = () => {
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                     penalty.pstatus === 'paid'
                       ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100'
+                      : penalty.pstatus === 'pending'
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100'
                       : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
                   }`}>
-                    {penalty.pstatus === 'paid' ? 'Paid' : 'Not Paid'}
+                    {penalty.pstatus === 'paid' ? 'Paid' : penalty.pstatus === 'pending' ? 'Pending' : 'Not Paid'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
@@ -170,9 +180,11 @@ const Penalties: React.FC = () => {
                   <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
                     selectedPenalty.pstatus === 'paid' 
                       ? 'bg-green-100 text-green-800'
-                      : 'bg-yellow-100 text-yellow-800'
+                      : selectedPenalty.pstatus === 'pending'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-red-100 text-red-800'
                   }`}>
-                    {selectedPenalty.pstatus === 'paid' ? 'Paid' : 'Not Paid'}
+                    {selectedPenalty.pstatus === 'paid' ? 'Paid' : selectedPenalty.pstatus === 'pending' ? 'Pending' : 'Not Paid'}
                   </span>
                 </div>
               </div>
@@ -251,9 +263,8 @@ const Penalties: React.FC = () => {
         <form onSubmit={(e) => {
           e.preventDefault();
           if (selectedPenalty) {
-            handlePayPenalty(selectedPenalty.p_id);
             setIsPaymentModalOpen(false);
-            setIsDetailModalOpen(false);
+            setIsInstructionModalOpen(true);
           }
         }} className="space-y-6">
           <div>
@@ -299,6 +310,36 @@ const Penalties: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Instruction Modal */}
+      <Modal
+        isOpen={isInstructionModalOpen}
+        onClose={() => setIsInstructionModalOpen(false)}
+        title="Waiting for Payment"
+      >
+        <div className="space-y-6">
+          <div className="bg-yellow-50 dark:bg-yellow-900/30 p-4 rounded-xl flex items-start">
+            <ExclamationTriangleIcon className="h-6 w-6 text-yellow-600 dark:text-yellow-500 mt-0.5" />
+            <p className="ml-3 text-yellow-800 dark:text-yellow-200">
+              After paying on your phone, click OK to submit this penalty for processing.
+            </p>
+          </div>
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+            <button
+              onClick={() => setIsInstructionModalOpen(false)}
+              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => selectedPenalty && handlePayPenalty(selectedPenalty.p_id)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       </Modal>
 
     </div>

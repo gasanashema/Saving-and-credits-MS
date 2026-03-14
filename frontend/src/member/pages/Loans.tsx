@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import useMemberLoans from '../../hooks/useMemberLoans';
 import useLoanEligibility from '../../hooks/useLoanEligibility';
 import useLoanPackages from '../../hooks/useLoanPackages';
 import useLoanPaymentDetails from '../../hooks/useLoanPaymentDetails';
 import server from '../../utils/server';
-import { BackendLoan, LoanPaymentDetails } from '../../types/loanTypes';
-import { PlusIcon, CheckCircleIcon, XCircleIcon, BanknotesIcon, CreditCardIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { BackendLoan } from '../../types/loanTypes';
+import { PlusIcon, CheckCircleIcon, XCircleIcon, BanknotesIcon, CreditCardIcon, ClockIcon, PhoneIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
 
@@ -31,6 +32,7 @@ interface UiLoan {
   notes?: string;
   amountToPay?: number;
   payedAmount?: number;
+  telephone?: string;
 }
 
 const tabs: Tab[] = ['all', 'pending', 'active', 'paid', 'rejected', 'cancelled'];
@@ -69,7 +71,8 @@ const Loans: React.FC = () => {
         // backend doesn't provide purpose/term/interest/dueDate in sample, keep undefined
         notes: (l.re as string) || undefined,
         amountToPay: Number(l.amountToPay ?? l.amountTopay ?? 0),
-        payedAmount: Number(l.payedAmount ?? 0)
+        payedAmount: Number(l.payedAmount ?? 0),
+        telephone: l.telephone || undefined
       } as UiLoan;
 
       return uiLoan;
@@ -89,18 +92,19 @@ const Loans: React.FC = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isInstructionModalOpen, setIsInstructionModalOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentPhone, setPaymentPhone] = useState('');
   const [paymentErrors, setPaymentErrors] = useState({ amount: '', phone: '' });
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // payment details for selected loan
-  const { paymentDetails, loading: paymentLoading, error: paymentError, refresh: refreshPaymentDetails } = useLoanPaymentDetails(selectedLoan?.id || null);
+  const { paymentDetails } = useLoanPaymentDetails(selectedLoan?.id || null);
 
   const { user } = useAuth();
   const { eligibility, loading: eligibilityLoading, refresh: refreshEligibility } = useLoanEligibility();
 
-  const { packages, loading: packagesLoading } = useLoanPackages();
+  const { packages } = useLoanPackages();
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
 
   // Set default package when packages load
@@ -128,10 +132,10 @@ const Loans: React.FC = () => {
 
   // Set default phone number when modal opens
   useEffect(() => {
-    if (isPaymentModalOpen && user?.telephone) {
-      setPaymentPhone(user.telephone);
+    if (isPaymentModalOpen) {
+      setPaymentPhone(selectedLoan?.telephone || user?.telephone || '');
     }
-  }, [isPaymentModalOpen, user]);
+  }, [isPaymentModalOpen, selectedLoan, user]);
 
   // new loan form state
   const [newLoan, setNewLoan] = useState({
@@ -375,32 +379,40 @@ const Loans: React.FC = () => {
     setIsProcessingPayment(true);
 
     try {
-      // Record payment via API
-      const response = await server.put('/loans/pay', {
+      // Transition to instructions instead of immediate API call
+      setIsPaymentModalOpen(false);
+      setIsInstructionModalOpen(true);
+      setIsProcessingPayment(false);
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Something went wrong. Please try again.');
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!selectedLoan) return;
+    const amount = Number(paymentAmount);
+    
+    setIsProcessingPayment(true);
+    try {
+      // Record pending payment via member-authorized endpoint
+      await server.put('/loans/pay/member/mark-pending', {
         loanId: selectedLoan.id,
         amount,
         phone: paymentPhone
       });
 
-      // Update local state to reflect payment
-      setDisplayLoans(prev => prev.map(loan =>
-        loan.id === selectedLoan.id
-          ? { ...loan, payedAmount: (loan.payedAmount || 0) + amount }
-          : loan
-      ));
-
-      // Refresh payment details if modal is still open
-      if (isPaymentModalOpen) {
-        refreshPaymentDetails();
-      }
-
-      setIsPaymentModalOpen(false);
+      toast.success('Payment submitted for admin confirmation! 🎉');
+      setIsInstructionModalOpen(false);
       setPaymentAmount('');
       setPaymentPhone('');
-      toast.success('Payment completed successfully! 🎉');
+      
+      // Refresh data
+      refresh();
     } catch (error) {
       console.error('Payment recording error:', error);
-      toast.error('Failed to process payment. Please try again.');
+      toast.error('Failed to submit payment. Please try again.');
     } finally {
       setIsProcessingPayment(false);
     }
@@ -750,7 +762,7 @@ const Loans: React.FC = () => {
               <label htmlFor="paymentPhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">MTN Mobile Money Number *</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <span className="text-gray-500 dark:text-gray-400">+250</span>
+                  <PhoneIcon className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   type="tel"
@@ -760,8 +772,8 @@ const Loans: React.FC = () => {
                     setPaymentPhone(e.target.value);
                     if (paymentErrors.phone) setPaymentErrors(prev => ({ ...prev, phone: '' }));
                   }}
-                  className="w-full pl-16 px-3 py-3 border-2 border-yellow-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 dark:bg-gray-700 dark:text-white dark:border-yellow-600"
-                  placeholder="78X XXX XXX"
+                  className="w-full pl-10 px-3 py-3 border-2 border-yellow-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 dark:bg-gray-700 dark:text-white dark:border-yellow-600"
+                  placeholder="Enter phone number"
                   disabled={isProcessingPayment}
                 />
               </div>
@@ -832,6 +844,37 @@ const Loans: React.FC = () => {
               </button>
             </div>
           </form>
+        </div>
+      </Modal>
+  
+      {/* Instruction Modal */}
+      <Modal
+        isOpen={isInstructionModalOpen}
+        onClose={() => setIsInstructionModalOpen(false)}
+        title="Waiting for Payment"
+      >
+        <div className="space-y-6">
+          <div className="bg-yellow-50 dark:bg-yellow-900/30 p-4 rounded-xl flex items-start">
+            <ExclamationTriangleIcon className="h-6 w-6 text-yellow-600 dark:text-yellow-500 mt-0.5" />
+            <p className="ml-3 text-yellow-800 dark:text-yellow-200">
+              Pay using <strong>{paymentPhone}</strong> on your phone, then click OK to wait for admin verification.
+            </p>
+          </div>
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => setIsInstructionModalOpen(false)}
+              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmPayment}
+              disabled={isProcessingPayment}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              {isProcessingPayment ? 'Processing...' : 'OK'}
+            </button>
+          </div>
         </div>
       </Modal>
 

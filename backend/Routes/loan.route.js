@@ -9,11 +9,13 @@ const {
   getLoanHistory,
   getLoansByStatus,
   getLoanPaymentDetails,
-  getAllLoanPayments,
-  getMemberPaymentHistory,
   getLoanById,
   getLoanConfigs,
   updateLoanConfig,
+  markLoanPending,
+  confirmLoanPayment,
+  getAllLoanPayments,
+  getMemberPaymentHistory,
 } = require("../services/loan.service");
 const {
   requestLoan,
@@ -80,6 +82,8 @@ loanRouter.get(
   getMemberPaymentHistory,
 );
 loanRouter.put("/pay", verifyAdmin, payLoan);
+loanRouter.put("/pay/member/mark-pending", verifyToken, markLoanPending);
+loanRouter.put("/payment/:payId/mark-paid", verifyAdmin, confirmLoanPayment);
 loanRouter.get("/payhistory/:id", verifyToken, getLoanHistory);
 
 module.exports = loanRouter;

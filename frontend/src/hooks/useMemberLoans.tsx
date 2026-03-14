@@ -39,7 +39,8 @@ export default function useMemberLoans() {
         id: Number(item.id ?? 0),
         nid: String(item.nid ?? ""),
         firstName: String(item.firstName ?? item.firstname ?? item.first_name ?? ""),
-        lastName: String(item.lastName ?? item.lastname ?? item.last_name ?? "")
+        lastName: String(item.lastName ?? item.lastname ?? item.last_name ?? ""),
+        telephone: item.telephone ? String(item.telephone) : undefined
       }));
 
       setLoans(normalized);

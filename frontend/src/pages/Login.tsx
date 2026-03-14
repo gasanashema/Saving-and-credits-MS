@@ -70,15 +70,15 @@ const Login: React.FC = () => {
 
       console.log('Parsed login response:', { token, role, responseId, fullname, email });
 
-      // Debug: store check logged after saving to localStorage
-
+      const telephone = response.telephone ?? response.user?.telephone ?? null;
+      console.log('Parsed login response:', { token, role, responseId, fullname, email, telephone });
 
       // Normalize the role for internal use (backend returns route-friendly 'super-admin' for super users)
       const responseRole = String(role || "member").toLowerCase();
       const storedRole = responseRole === "super-admin" ? "sadmin" : responseRole;
 
       // 🧠 Store user info and token separately (store canonical short role)
-      const userData = { id: responseId, fullname, email, role: storedRole, token };
+      const userData = { id: responseId, fullname, email, role: storedRole, token, telephone };
       localStorage.setItem("user", JSON.stringify(userData));
       localStorage.setItem("token", token); // Store token separately for axios interceptor
       window.dispatchEvent(new Event("storage"));

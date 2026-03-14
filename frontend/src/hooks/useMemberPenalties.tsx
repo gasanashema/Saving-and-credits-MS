@@ -7,7 +7,7 @@ export interface Penalty {
   date: string;
   amount: number;
   memberId: number;
-  pstatus: 'wait' | 'paid';
+  pstatus: 'wait' | 'paid' | 'pending';
   PayedArt: string | null;
   confirmedBy: number;
   firstName: string;
@@ -54,7 +54,7 @@ export default function useMemberPenalties(): UseMemberPenaltiesResult {
         date: p.date ?? "",
         amount: Number(p.amount ?? 0),
         memberId: Number(p.memberId ?? 0),
-        pstatus: String(p.pstatus ?? "wait") as 'wait' | 'paid',
+        pstatus: String(p.pstatus ?? "wait") as 'wait' | 'paid' | 'pending',
         PayedArt: p.PayedArt ?? null,
         confirmedBy: Number(p.confirmedBy ?? 0),
         firstName: p.firstName ?? "",

@@ -20,6 +20,8 @@ export interface Payment {
   penaltyType?: string;
   penaltyAmount?: number;
   penaltyStatus?: string;
+  paymentStatus?: 'pending' | 'confirmed';
+  paymentPhone?: string;
   // raw extra fields allowed
   [key: string]: any;
 }
@@ -76,6 +78,8 @@ export default function useLoanPayments(limit?: number): UseLoanPaymentsResult {
           penaltyType: p.penalty_type ?? undefined,
           penaltyAmount: p.penalty_amount != null ? Number(p.penalty_amount) : undefined,
           penaltyStatus: p.penalty_status ?? undefined,
+          paymentStatus: p.payment_status ?? undefined,
+          paymentPhone: p.payment_phone ?? undefined,
           // keep original payload for debug if needed
           raw: p,
         };

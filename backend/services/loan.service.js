@@ -249,7 +249,7 @@ const getMemberLoans = async (req, res) => {
   const { memberId } = req.params;
   try {
     const [loans] = await conn.query(
-      "SELECT `loanId`, `requestDate`, `re`, `amount`, `rate`, `duration`, `applovedDate`, `apploverId`, `memberId`, `amountTopay`, `payedAmount`, loan.status as lstatus, members.id as member_id, `nid`, `firstName`, `lastName` FROM `loan` INNER JOIN members ON members.id = loan.memberId WHERE loan.memberId = ?",
+      "SELECT `loanId`, `requestDate`, `re`, `amount`, `rate`, `duration`, `applovedDate`, `apploverId`, `memberId`, `amountTopay`, `payedAmount`, loan.status as lstatus, members.id as member_id, `nid`, `firstName`, `lastName`, members.telephone FROM `loan` INNER JOIN members ON members.id = loan.memberId WHERE loan.memberId = ?",
       [parseInt(memberId)],
     );
     return res.json(loans);
@@ -298,8 +298,8 @@ const payLoan = async (req, res) => {
 
     // Insert the payment
     const payment = await conn.query(
-      "INSERT INTO `loanpayment`(`loanId`, `amount`, `recorderID`) VALUES(?,?,?)",
-      [loanId, amount, recorderID],
+      "INSERT INTO `loanpayment`(`loanId`, `amount`, `recorderID`, `status`) VALUES(?,?,?,?)",
+      [loanId, amount, recorderID, 'confirmed'],
     );
 
     // Sum all payments for this loan
@@ -346,6 +346,107 @@ const payLoan = async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: JSON.stringify(error) });
     throw error;
+  }
+};
+
+const markLoanPending = async (req, res) => {
+  try {
+    const { loanId, amount, phone } = req.body;
+    const authHeader = req.headers.authorization;
+    let memberId = null;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      memberId = decoded.id;
+    }
+
+    if (!memberId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Insert the pending payment
+    // We use recorderID = 1 as a placeholder for system/self-recorded until admin confirms
+    const [result] = await conn.query(
+      "INSERT INTO `loanpayment`(`loanId`, `amount`, `recorderID`, `status`, `phone`) VALUES(?,?,?,?,?)",
+      [loanId, amount, 1, 'pending', phone],
+    );
+
+    return res.json({
+      status: 201,
+      message: "Payment marked as pending for admin verification",
+      result
+    });
+  } catch (error) {
+    console.error("markLoanPending Error:", error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const confirmLoanPayment = async (req, res) => {
+  try {
+    const { payId } = req.params;
+    const authHeader = req.headers.authorization;
+    let adminId = 1;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7);
+      adminId = jwt.verify(token, process.env.JWT_SECRET).id;
+    }
+
+    // 1. Get payment details
+    const [payment] = await conn.query(
+      "SELECT loanId, amount, status FROM loanpayment WHERE pay_id = ?",
+      [payId]
+    );
+
+    if (payment.length === 0) {
+      return res.status(404).json({ error: "Payment record not found" });
+    }
+
+    if (payment[0].status === 'confirmed') {
+      return res.status(400).json({ error: "Payment already confirmed" });
+    }
+
+    const { loanId, amount } = payment[0];
+
+    // 2. Update payment status and recorderID (to the admin who confirmed)
+    await conn.query(
+      "UPDATE loanpayment SET status = 'confirmed', recorderID = ? WHERE pay_id = ?",
+      [adminId, payId]
+    );
+
+    // 3. Update loan payedAmount and status
+    // Sum ALL confirmed payments for this loan
+    const [paymentSum] = await conn.query(
+      "SELECT SUM(amount) as totalPaid FROM loanpayment WHERE loanId = ? AND status = 'confirmed'",
+      [loanId]
+    );
+
+    const totalPaid = paymentSum[0].totalPaid || 0;
+
+    // Get loan details to check amountTopay
+    const [loanDetails] = await conn.query(
+      "SELECT amountTopay FROM loan WHERE loanId = ?",
+      [loanId]
+    );
+
+    const amountTopay = loanDetails[0].amountTopay;
+    const newStatus = totalPaid >= amountTopay ? "paid" : "active";
+
+    await conn.query(
+      "UPDATE loan SET payedAmount = ?, status = ? WHERE loanId = ?",
+      [totalPaid, newStatus, loanId]
+    );
+
+    return res.json({
+      message: "Payment confirmed successfully",
+      totalPaid,
+      newStatus
+    });
+  } catch (error) {
+    console.error("confirmLoanPayment Error:", error);
+    res.status(500).json({ error: error.message });
   }
 };
 const getTotal = async (req, res) => {
@@ -412,6 +513,8 @@ const getAllLoanPayments = async (req, res) => {
         m.firstName,
         m.lastName,
         m.telephone,
+        lp.status as payment_status,
+        lp.phone as payment_phone,
         u.fullname as recorder_name,
         (l.amountTopay - l.payedAmount) as remaining_amount
       FROM loanpayment lp
@@ -461,15 +564,15 @@ const getLoanPaymentDetails = async (req, res) => {
     const [payments] = await conn.query(
       `SELECT lp.*, u.fullname as recorder_name
        FROM loanpayment lp
-       INNER JOIN users u ON lp.recorderID = u.user_id
+       LEFT JOIN users u ON lp.recorderID = u.user_id
        WHERE lp.loanId = ?
        ORDER BY lp.pay_date DESC`,
       [loanIdNum],
     );
 
-    // Calculate total paid from payments
+    // Calculate total paid from CONFIRMED payments
     const paidAmount = payments.reduce(
-      (sum, payment) => sum + parseFloat(payment.amount),
+      (sum, payment) => sum + (payment.status === 'confirmed' ? parseFloat(payment.amount) : 0),
       0,
     );
     const totalAmount = parseFloat(loanDetails[0].amountTopay);
@@ -517,6 +620,8 @@ const getMemberPaymentHistory = async (req, res) => {
         m.firstName,
         m.lastName,
         m.telephone,
+        lp.status as payment_status,
+        lp.phone as payment_phone,
         u.fullname as recorder_name,
         (l.amountTopay - l.payedAmount) as remaining_amount
       FROM loanpayment lp
@@ -530,7 +635,7 @@ const getMemberPaymentHistory = async (req, res) => {
 
     // Calculate totals
     const totalPaid = payments.reduce(
-      (sum, p) => sum + parseFloat(p.amount),
+      (sum, p) => sum + (p.payment_status === 'confirmed' ? parseFloat(p.amount) : 0),
       0,
     );
     const totalRemaining = payments.reduce(
@@ -602,8 +707,10 @@ module.exports = {
   getLoansByStatus,
   getLoanPaymentDetails,
   getAllLoanPayments,
-  getMemberPaymentHistory,
   getLoanById,
   getLoanConfigs,
   updateLoanConfig,
+  markLoanPending,
+  confirmLoanPayment,
+  getMemberPaymentHistory,
 };

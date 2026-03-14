@@ -122,11 +122,13 @@ const Auth = async (req, res) => {
       email: user.email || null,
       fullname,
       id: canonicalId,
+      telephone: user.telephone || null,
       user: {
         id: canonicalId,
         fullname,
         email: user.email || null,
         role: responseRole,
+        telephone: user.telephone || null,
       },
     };
 

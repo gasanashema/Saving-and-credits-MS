@@ -3,11 +3,13 @@ import { motion } from 'framer-motion';
 import { PencilIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import useLoanPackages from '../../hooks/useLoanPackages';
 import server from '../../utils/server';
+import { useAuth } from '../../context/AuthContext';
 import { LoanPackage } from '../../types/loanTypes';
 import { toast } from 'sonner';
 
 const LoanPackages: React.FC = () => {
   const { packages, loading, error, refresh } = useLoanPackages();
+  const { user } = useAuth();
   console.log("Packages List:", packages);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<LoanPackage | null>(null);
@@ -87,9 +89,11 @@ const LoanPackages: React.FC = () => {
                         {pkg.status}
                     </span>
                   </div>
-                  <button onClick={() => handleEdit(pkg)} className="text-gray-400 hover:text-blue-500">
-                    <PencilIcon className="h-5 w-5" />
-                  </button>
+                  {user?.role === 'sadmin' && (
+                    <button onClick={() => handleEdit(pkg)} className="text-gray-400 hover:text-blue-500">
+                      <PencilIcon className="h-5 w-5" />
+                    </button>
+                  )}
               </div>
               
               <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">

@@ -75,6 +75,25 @@ const payPenality = async (req, res) => {
     throw error;
   }
 };
+
+const markPenaltyPending = async (req, res) => {
+  try {
+    const { pid } = req.params;
+    const dt = new Date();
+    
+    // Instead of completely paid, just mark as 'pending' process
+    const [result] = await conn.query(
+      "UPDATE `penalties` SET `pstatus`=?,`PayedArt`=? WHERE `p_id`=?",
+      ["pending", dt, pid]
+    );
+    
+    return res.json({ status: 200, message: "penalty marked as pending", result });
+  } catch (error) {
+    console.error("Error marking penalty pending:", error);
+    return res.status(400).json({ error: error.message });
+  }
+};
+
 const getSelectList = async (req, res) => {
   try {
     const [list] = await conn.query(
@@ -178,4 +197,5 @@ module.exports = {
   updatePenaltyType,
   deletePenaltyType,
   getAllPenaltyTypes,
+  markPenaltyPending,
 };

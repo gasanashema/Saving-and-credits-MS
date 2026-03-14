@@ -15,6 +15,7 @@ export interface BackendLoan {
   nid: string;
   firstName: string;
   lastName: string;
+  telephone?: string;
   // allow extra fields the backend may send
   [key: string]: any;
 }
@@ -31,6 +32,7 @@ export interface Loan {
   interestRate?: number;
   dueDate?: string;
   notes?: string;
+  telephone?: string;
 }
 
 export type LoanStatus = 'pending' | 'active' | 'approved' | 'paid' | 'rejected';
