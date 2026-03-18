@@ -11,7 +11,7 @@ const LandingPage: React.FC = () => {
       
       {/* Background Image */}
       <motion.img
-        src="https://umuseke.rw/wp-content/uploads/2022/06/arton7594.jpg"
+        src="https://www.igihe.com/local/cache-vignettes/L600xH346/arton7594-4f60e.jpg"
         alt="Finance background"
         className="absolute top-0 left-0 w-full h-full object-cover z-0 brightness-75 dark:brightness-50"
         initial={{ scale: 1.2 }}
