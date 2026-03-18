@@ -696,6 +696,18 @@ const updateLoanConfig = async (req, res) => {
   }
 };
 
+const getPendingPaymentsCount = async (req, res) => {
+  try {
+    const [result] = await conn.query(
+      "SELECT COUNT(*) as count FROM loanpayment WHERE status = 'pending'"
+    );
+    return res.json({ count: result[0].count });
+  } catch (error) {
+    console.error("Error fetching pending payments count:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   addLoan,
   getTotal,
@@ -713,4 +725,5 @@ module.exports = {
   markLoanPending,
   confirmLoanPayment,
   getMemberPaymentHistory,
+  getPendingPaymentsCount,
 };

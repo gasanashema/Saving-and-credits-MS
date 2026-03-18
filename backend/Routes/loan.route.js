@@ -16,6 +16,7 @@ const {
   confirmLoanPayment,
   getAllLoanPayments,
   getMemberPaymentHistory,
+  getPendingPaymentsCount,
 } = require("../services/loan.service");
 const {
   requestLoan,
@@ -76,6 +77,11 @@ loanRouter.get("/actions/:loanId/:action", verifyAdmin, loanAction);
 loanRouter.get("/total/:search", verifyAdmin, getTotal);
 loanRouter.get("/payment-details/:loanId", verifyToken, getLoanPaymentDetails);
 loanRouter.get("/payments/recent", verifyAdmin, getAllLoanPayments);
+loanRouter.get(
+  "/payments/pending/count",
+  verifyAdmin,
+  getPendingPaymentsCount,
+);
 loanRouter.get(
   "/member-payment-history/:memberId",
   verifyToken,

@@ -1,8 +1,8 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useTheme } from '../../../context/ThemeContext';
-import useUnreadChats from '../../../hooks/useUnreadChats';
+import usePendingLoanPaymentsCount from '../../../hooks/usePendingLoanPaymentsCount';
 import { HomeIcon, UsersIcon, BanknotesIcon, ArrowDownCircleIcon, ChartBarIcon, BellIcon, Cog6ToothIcon, XMarkIcon, CurrencyDollarIcon, ExclamationTriangleIcon, CubeIcon } from '@heroicons/react/24/outline';
 interface SidebarProps {
   toggleSidebar: () => void;
@@ -13,11 +13,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   const {
     t
   } = useLanguage();
-  const navigate = useNavigate();
   const {
     theme
   } = useTheme();
-  const { unread: unreadChats } = useUnreadChats();
+  const { count: pendingRepayments } = usePendingLoanPaymentsCount();
   const navItems = [{
     path: '/admin',
     name: t('dashboard'),
@@ -79,6 +78,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           }) => `flex items-center px-4 py-3 rounded-lg transition-colors ${isActive ? 'bg-emerald-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                 {item.icon}
                 <span className="ml-3">{item.name}</span>
+                {item.path === '/admin/repayments' && pendingRepayments > 0 && (
+                  <span className="ml-auto flex h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-800" title={`${pendingRepayments} pending`}></span>
+                )}
                 {item.path === '/notifications' && <span className="ml-auto bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
                     3
                   </span>}

@@ -113,8 +113,9 @@ const Repayments: React.FC = () => {
       setIsPaymentModalOpen(false);
       setPaymentAmount('');
       setPaymentPhone('');
-      toast.success('Payment completed successfully! 🎉');
       refresh();
+      window.dispatchEvent(new CustomEvent('repayments:changed'));
+      toast.success('Payment completed successfully! 🎉');
     } catch (error) {
       console.error('Payment recording error:', error);
       toast.error('Failed to process payment. Please try again.');

@@ -73,6 +73,7 @@ const Repayments: React.FC = () => {
     try {
       await server.put(`/loans/payment/${paymentId}/mark-paid`);
       refresh();
+      window.dispatchEvent(new CustomEvent('repayments:changed'));
       toast.success('Payment confirmed successfully');
       setIsDetailModalOpen(false);
     } catch (error) {
