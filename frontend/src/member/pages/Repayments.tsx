@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '../../context/LanguageContext';
-import { PlusIcon, CalendarIcon, UserIcon, PhoneIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import { UserIcon, PhoneIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import Modal from '../../components/ui/Modal';
 import { toast } from 'sonner';
 import useMemberPaymentHistory from '../../hooks/useMemberPaymentHistory';
@@ -33,11 +33,7 @@ interface Payment {
   penalty_status?: string;
 }
 
-interface NewPayment {
-  loanId: string;
-  amount: string;
-  status?: string;
-}
+
 
 const Repayments: React.FC = () => {
   const { t } = useLanguage();
@@ -54,27 +50,13 @@ const Repayments: React.FC = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Payment details for selected loan
-  const { paymentDetails, loading: paymentLoading, refresh: refreshPaymentDetails } = useLoanPaymentDetails(selectedLoanForPayment?.loanId || null);
+  const { paymentDetails } = useLoanPaymentDetails(selectedLoanForPayment?.loanId || null);
   console.log('Repayments page: payments data:', payments);
   console.log('Repayments page: summary:', summary);
 
 
 
-  const handleMarkAsPaid = async (paymentId: number) => {
-    console.log('handleMarkAsPaid called with paymentId:', paymentId);
-    try {
-      console.log('Making PUT request to /loans/payment/' + paymentId + '/mark-paid');
-      await server.put(`/loans/payment/${paymentId}/mark-paid`);
-      console.log('PUT request successful, refreshing data');
-      refresh();
-      toast.success('Payment marked as paid successfully');
-      setIsDetailModalOpen(false);
-    } catch (error) {
-      console.error('Mark as paid error:', error);
-      console.log('Failed to mark payment as paid');
-      toast.error('Failed to mark payment as paid');
-    }
-  };
+
 
   // Use summary from hook
   const totalPaid = summary.totalAmountPaid;
@@ -122,7 +104,7 @@ const Repayments: React.FC = () => {
     setIsProcessingPayment(true);
 
     try {
-      const response = await server.put('/loans/pay', {
+      await server.put('/loans/pay/member/mark-pending', {
         loanId: selectedLoanForPayment.loanId,
         amount,
         phone: paymentPhone
