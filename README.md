@@ -114,6 +114,28 @@ Ensure you have the following installed locally:
 
 ---
 
+## 🐳 Running with Docker Compose
+
+You can easily launch the entire system—including the MySQL database, Node.js API backend, and React/Nginx frontend—using Docker Compose.
+
+### Setup and Start:
+1. Make sure you have **Docker** and **Docker Compose** installed on your machine.
+2. From the project root directory, run the build and run command:
+   ```bash
+   docker compose up --build -d
+   ```
+3. Docker Compose will:
+   * Spin up a MySQL 8 container, automatically initialize the schema and populate the database with `seed.sql`.
+   * Compile and start the Express API backend (binding on `localhost:3000`).
+   * Compile the Vite React client, package it within a custom Nginx configuration with proper client-side route fallback mechanisms, and serve the application on port `80` (accessible at `http://localhost`).
+
+### Shut down the system:
+```bash
+docker compose down -v
+```
+
+---
+
 ## 🔑 Pre-seeded Testing Credentials
 
 Use the following seeded accounts to navigate the cooperative dashboard:

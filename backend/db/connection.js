@@ -3,18 +3,11 @@ const mysql = require("mysql2");
 
 const conn = mysql
   .createPool({
-    // host: process.env.DB_HOST,
-    // user: process.env.DB_USER, // Corrected the variable name here
-    // password: process.env.DB_PASSWORD,
-    // database: process.env.DB_NAME,
-    // port: process.env.DB_PORT,
-    host: "localhost",
-    user: "root",
-    password: "",
-    // database: "ikibina_new",
-    // database: "ikibina_app",
-    database: "ikibina_db",
-    port: 3306,
+    host: process.env.DB_HOST || "localhost",
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : "",
+    database: process.env.DB_NAME || "ikibina_db",
+    port: process.env.DB_PORT || 3306,
   })
   .promise();
   
