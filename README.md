@@ -6,6 +6,30 @@ The platform supports web dashboards for administrators and members, USSD gatewa
 
 ---
 
+## 📸 Application Preview (Screenshots)
+
+### 1. Modern Login Portal
+Features secure dual-mode login for members (via Phone/PIN) and administrators.
+![Login Portal](screenshoots/Screenshot%20from%202026-07-18%2020-12-23.png)
+
+### 2. Admin Dashboard Overview
+Displays key metrics including Total Members, Total Savings, Active Loans, and Profits alongside recent transaction activities.
+![Dashboard Overview](screenshoots/Screenshot%20from%202026-07-18%2020-13-14.png)
+
+### 3. Reports & Analytics
+Visualizes cooperative growth indicators and loan status distributions (Paid, Active, Pending, Rejected) with exporting tools.
+![Reports and Analytics](screenshoots/Screenshot%20from%202026-07-18%2020-13-47.png)
+
+### 4. Loan Packages Configurator
+Provides administrators with settings for minimum savings prerequisites, duration limits, and interest rates for different loan tiers.
+![Loan Packages](screenshoots/Screenshot%20from%202026-07-18%2020-14-08.png)
+
+### 5. In-App Notifications & Messaging
+Manages internal messaging alerts for loans, savings submissions, and cooperative notifications.
+![Notifications Panel](screenshoots/Screenshot%20from%202026-07-18%2020-18-01.png)
+
+---
+
 ## 🛠️ Technology Stack
 
 *   **Frontend**: React (Vite, TypeScript, TailwindCSS, Ant Design UI elements, Recharts data visualization)
